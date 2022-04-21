@@ -1,0 +1,171 @@
+---
+title: "Cognitive Diagnostic Model Fits"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Versions:
+
+\begin{enumerate}
+  \item one
+\end{enumerate}
+
+Generate simulated data:
+
+```{r}
+require(cdmfits)
+require(tidyverse)
+
+simout=simulated_cdm_data(Nskill=3,seed=123)
+X=simout$X
+Q=simout$Q
+true_attributes=simout$true_attributes
+
+model_names=c('mcmc_cdmfits',
+              'variational',
+              'em_cdmfits',
+              'variational_em_cdmfits',
+              'mcmc_stan',
+              'gdina_CDM')%>%set_names(.,.)
+fit_info=data.frame(name=model_names,
+                    t=NA,accuracy=NA)
+```
+
+Fit standard MCMC model with 1000 iterations (takes about twenty seconds):
+
+```{r}
+M=10
+run_mcmc_sampler(X,Q,M,verb=T)
+q_info=generate_q_info(Q)
+
+init_vals=gen_initial_values(X,Q)
+t1=system.time({stored_parameters=run_mcmc_sampler(X,Q,M,verb=T)})
+
+last_iter=stored_parameters[[length(stored_parameters)]]
+pred_profs_mcmc=vals_to_preds(last_iter,Q)
+
+# fit_info['mcmc_cdmfits','t']=t1[3]
+# fit_info['mcmc_cdmfits','accuracy']=mean(pred_profs_mcmc==true_attributes)
+```
+
+CMD Package fit using gdina (takes ~.3 seconds):
+
+```{r}
+#takes .1 seconds
+require('CDM')
+sink('/dev/null')
+t2=system.time({mod1 <- CDM::gdina( data=X, q.matrix=Q, linkfct='logit')})
+sink()
+# A=mod1$probitem%>%
+# LL=pivot_wider(id_cols=itemno,names_from=skillcomb,values_from=prob)
+accuracy=mean(mod1$pattern$mle.est==c('000','100','010','110','001','101','011','111')[true_attributes])
+
+fit_info['gdina_CDM','t']=t2[3]
+fit_info['gdina_CDM','accuracy']=accuracy
+```
+
+Variational Using STAN (takes around ~10seconds):
+
+```{r}
+require(cmdstanr)
+write_data_to_json(X,Q,'~/cmdstan/programs/cdm_data.json')
+# stan_make('cdm')
+tstan=system.time({mcmc_out=stan_mcmc('cdm','cdm_data.json',run=T)})
+
+stan_out=rstan::read_stan_csv(paste('~/cmdstan/programs/mcmc_out.csv',sep=''))
+stan_out=rstan::extract(stan_out)
+
+probout=stan_out_to_preds(mcmc_out,Q)
+  
+fit_info['mcmc_stan','t']=tstan[3]
+fit_info['mcmc_stan','accuracy']=accuracy
+```
+MCMC fit using stan (takes ~300 seconds)
+
+```{r}
+require(cmdstanr)
+write_data_to_json(X,Q,'~/cmdstan/programs/cdm_data.json')
+# stan_make('cdm')
+tstan=system.time({variational_out=stan_variational('cdm','cdm_data.json',run=T)})
+
+stan_out=rstan::read_stan_csv(paste('~/cmdstan/programs/variational_out.csv',sep=''))
+stan_out=rstan::extract(stan_out)
+probout=stan_out_to_preds(stan_out,Q)
+accuracy=mean(probout==true_attributes)
+
+fit_info['variational','t']=tstan[3]
+fit_info['variational','accuracy']=accuracy
+```
+
+Expectation maximization using "cdmfits" 
+
+```{r}
+
+log_theta=inputvals$log_theta
+value_key=inputvals$value_key
+
+gen_logits_em<-function(values){
+  mylogits=matrix(NA,Nprofile,Nq)
+  for(i in 1:Nprofile){
+    for(j in 1:Nq){
+      mylogits[i,j]=logit(mean(X[values==i,j]))
+    }
+  }
+  return(t(mylogits))
+}
+
+t_em=system.time({
+  vals=sort(sample(1:8,Nz,rep=T))
+  for(i in 1:100){
+    print(i)
+    old_vals=vals
+    old_emblogits=emlogits
+    
+    emlogits=gen_logits_em(vals)
+    #maximization
+    vals=liks_from_logits(emlogits,X,q_info)%>%
+      pred_prof_from_liks()
+    if(mean(abs(old_emblogits-emlogits))<1e-12){
+      break
+    }
+  }
+})
+mean(vals==true_attributes)
+
+pred_profs_em=vals
+fit_info['em_cdmfits','t']=t_em[3]
+fit_info['em_cdmfits','accuracy']=mean(pred_profs_em==true_attributes)
+```
+
+Variational EM using "cdmfits" 
+
+```{r}
+
+#maximization:
+t_em=system.time({optout_em=optim(init_vals$lambda,cdm_expectation,control=list(trace=6))})
+
+opt_vals_vem=list(lambda=opt_out_vem$par[1:nlambda],
+              value_key=value_key,
+              log_theta=log_theta)
+
+pred_profs_vem=vals_to_preds(opt_vals_vem,Q)
+
+fit_info['variational_em_cdmfits','t']=t_vem[3]
+fit_info['variational_em_cdmfits','accuracy']=mean(pred_profs_vem==true_attributes)
+```
+
+```{r}
+# save(fit_info,file='fit_info.RData')
+load('fit_info.RData')
+fit_info
+
+
+
+
+```
+

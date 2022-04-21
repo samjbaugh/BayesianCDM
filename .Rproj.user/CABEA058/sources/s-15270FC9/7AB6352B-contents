@@ -1,0 +1,13 @@
+Nrespondents=20;
+Nquestions=22;
+Nskill=3;
+Ntime=1;
+Ngroup=1;
+# # respondent_designmat=Matrix(rep(1;Nrespondents),Nrespondents;1);
+# group_designmat=Matrix(rep(1;Ngroup),Ngroup;1);
+# group_assignments=NULL;
+# seed=NULL;
+# true_params=NULL;
+# true_skill_transprob=NULL;
+# Q=NULL;
+# true_profiles=NULL

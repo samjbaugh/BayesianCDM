@@ -1,0 +1,40 @@
+devtools::load_all()
+
+simout=simulated_cdm_data(Nskill=2,seed=123)
+X=simout$X
+Q=simout$Q
+true_attributes=simout$true_attributes
+
+
+####MCMC Fit
+M=1000
+# init_vals=gen_initial_values(X,Q)
+
+stored_parameters=run_mcmc_sampler(X,Q,M)
+stored_parameters_continuous=run_mcmc_sampler_continuous(X,Q,M)
+
+last_iter=stored_parameters[[length(stored_parameters)]]
+q_info=generate_q_info(Q)
+logitout=logit_probs_from_vals(last_iter,q_info)
+liks=liks_from_logits(logitout,X,q_info)
+pred_profs_mcmc=pred_prof_from_liks(liks)
+
+
+require(tidyverse)
+stored_parameters[[M]]%>%vals_to_preds(Q)
+as=stored_parameters_continuous[[M]]$a
+mean(pred_profs_mcmc==true_attributes)
+mean(apply(as,2,function(x) which(x==max(x)))==true_attributes)
+
+
+# View(probout$myprobs)
+# probout$myprobs
+# if(F){
+#   mod1 <- CDM::gdina( data=X, q.matrix=Q, linkfct='logit')
+#   summary(mod1)
+#   A=mod1$probitem
+#   require('tidyverse')
+#   LL=pivot_wider(A,id_cols=itemno,names_from=skillcomb,values_from=prob)
+#   mean(mod1$pattern$mle.est==c('00','10','01','11')[true_attributes])
+# }
+# mean(l1==(true_attributes))
