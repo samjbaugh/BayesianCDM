@@ -1,0 +1,26 @@
+{
+    "id": "AAA78509",
+    "path": "~/Dropbox/MJProjects/CogDiagModels/StanCode/cdm.stan",
+    "project_path": null,
+    "type": "stan",
+    "hash": "1088574792",
+    "contents": "",
+    "dirty": false,
+    "created": 1632519099840.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "15,7",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1632521735,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1632521735386,
+    "read_only": false,
+    "read_only_alternatives": []
+}

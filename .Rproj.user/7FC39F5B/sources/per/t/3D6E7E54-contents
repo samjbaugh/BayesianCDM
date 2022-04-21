@@ -1,0 +1,90 @@
+#' write data to json
+#'
+#' @param X X matrix
+#' @param Q Q matrix
+#' @param filename filename
+#' @export
+write_data_to_json<-function(X,Q,filename){
+  Nskill=dim(Q)[2]
+  q_info=generate_q_info(Q)
+  Nprofile=2^Nskill
+  Ninteraction=length(q_info$interaction_qids)
+
+  cdm_data=list(
+    Nz=dim(X)[1],
+    Nq=dim(Q)[1],
+    Nskill=Nskill,
+    Nprofile=Nprofile,
+    Ninteraction=Ninteraction,
+    skill_in_profile=as.array(q_info$skill_in_profile+0,c(Nskill,Nprofile)),
+    interaction_in_profile=as.array(q_info$interaction_in_profile+0,c(Ninteraction,Nprofile)),
+    interaction_qids=q_info$interaction_qids,
+    Q=Q,
+    X=X
+  )
+
+  write_stan_json(cdm_data,file=filename)
+}
+
+#' stan make
+#'
+#' @param stan_filename stan filename
+#' @export
+stan_make<-function(stan_name){
+  wd=getwd()
+  stan_filename=paste(stan_name,'.stan',sep='')
+  command1=paste('cp StanCode/',stan_filename,' ~/cmdstan/programs/',stan_filename,sep='')
+  runfile=paste('~/cmdstan/programs/',stan_name,sep='')
+  if(file.exists(runfile)){
+    file.remove(runfile)
+  }
+  command2=paste(paste('make programs/',runfile))
+  system(command1)
+  setwd('~/cmdstan')
+  system(command2)
+  setwd(wd)
+}
+
+#'stan variational
+#'
+#'@param
+#'@export
+stan_variational<-function(stan_name,data_filename='cdm_test_data.json',
+                           output_filename='variational_out.csv',run=T){
+
+  command=paste('~/cmdstan/programs/',stan_name,
+                ' variational data file=/home/samjbaugh/cmdstan/programs/',data_filename,
+                ' output file=',output_filename,sep='')
+  if(run){
+    system(command)
+    stan_out=rstan::read_stan_csv(paste('~/cmdstan/programs/',output_filename,sep=''))
+    stan_out=rstan::extract(stan_out)
+  }else{
+    print('Paste into command line:')
+    print(command)
+  }
+  return(stan_out)
+  # system('cmd_stan_contrasts variational data file=cdm_test_data.json output file=variational_out.csv')
+}
+
+#'stan mcmc
+#'
+#'@param
+#'@export
+stan_mcmc<-function(stan_name,data_filename='cdm_test_data.json',
+                           output_filename='mcmc_out.csv',run=T){
+  command=paste('~/cmdstan/programs/',stan_name,
+                ' sample data file=/home/samjbaugh/cmdstan/programs/',data_filename,
+                ' output file=',output_filename,sep='')
+  if(run){
+    system(command)
+    stan_out=rstan::read_stan_csv(paste('~/cmdstan/programs/',output_filename,sep=''))
+    stan_out=rstan::extract(stan_out)
+  }else{
+    print('Paste into command line:')
+    print(command)
+  }
+  return(stan_out)
+  # system('cmd_stan_contrasts variational data file=cdm_test_data.json output file=variational_out.csv')
+}
+

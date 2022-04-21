@@ -1,0 +1,188 @@
+#' Runs MCMC Sampler
+#'
+#' @param X Item-response matrix
+#' @param Q Q matrix
+#' @param M Number of iterations to run
+#' @param configlist List of configuration values
+#' @return Returns list of mcmc samples
+#' @export
+run_mcmc_sampler_discrete<-function(X,Q,M,configlist=NULL,init_vals=NULL,verb=T){
+  varname_list=c('lambda')
+  proposal_sigs=list('lambda'=.1)
+  sum_funs=list('lambda'=identity)
+
+  if(is.null(init_vals)){
+    init_vals=gen_initial_values(X,Q)
+  }
+  current_values=init_vals
+
+  # M=configfile$M
+  store_iter=1
+  batch_size=1000
+  q_info=generate_q_info(Q)
+
+  acceptance_rates=lapply(varname_list,function(x) rep(NA,M))
+  names(acceptance_rates)=varname_list
+  update_sigma_tf=lapply(varname_list,function(x) FALSE)
+  names(update_sigma_tf)=varname_list
+
+  stored_parameters=list(current_values)
+
+  start_index=1
+  nsteps=1
+
+  for(jj in start_index:M)
+  {
+    if(jj%%10==0 & verb){
+      print(jj)
+    }
+    store=jj%%store_iter==0
+    storej=floor(jj/store_iter)
+
+    varname='lambda'
+    acceptance_rates[[varname]][jj]=0
+
+    out=update_lambda(current_values,X,q_info,proposal_sigs)
+    current_values=out$newvalue
+    acceptance_rates[[varname]][jj]=acceptance_rates[[varname]][jj]+(out$accepts)/nsteps
+
+    stored_parameters[[storej]]=current_values
+    mi=max(1,jj-batch_size)
+    for(varname in varname_list)
+    {
+      #rosenthall and roberts algorithm
+      delta=ifelse(mean(acceptance_rates[[varname]][batch_size:jj],na.rm=T)>.44,
+                   min(.01,1/sqrt(jj)),-min(.01,1/sqrt(jj)))
+      proposal_sigs[[varname]]=proposal_sigs[[varname]]*exp(delta)
+      if(proposal_sigs[[varname]]>1){
+        proposal_sigs[[varname]]=1
+      }
+    }
+    assign("proposal_sigs",proposal_sigs,envir = .GlobalEnv)
+  }
+  return(stored_parameters)
+}
+
+run_mcmc_sampler_longitudinal<-function(Xdata,Q,M,configlist=NULL,init_vals=NULL,verb=T){
+  Nz=dim(Xdata$Xs)[1]
+  varname_list=c('lambda','beta_mat_f','beta_mat_b')
+  proposal_sigs=list('lambda'=.1,'beta_mat_f'=.1,'beta_mat_b'=.1)
+  sum_funs=list('lambda'=identity)
+
+  if(is.null(init_vals)){
+    init_vals=gen_initial_values_longitudinal(Nrespondents,Q)
+  }
+  current_values=init_vals
+
+  # M=configfile$M
+  store_iter=1
+  batch_size=1000
+  q_info=generate_q_info(Q)
+
+  acceptance_rates=lapply(varname_list,function(x) rep(NA,M))
+  names(acceptance_rates)=varname_list
+  update_sigma_tf=lapply(varname_list,function(x) FALSE)
+  names(update_sigma_tf)=varname_list
+
+  stored_parameters=list(current_values)
+
+  start_index=1
+  nsteps=1
+
+  for(jj in start_index:M)
+  {
+    if(jj%%10==0 & verb){
+      print(jj)
+    }
+    store=jj%%store_iter==0
+    storej=floor(jj/store_iter)
+
+    for(varname in c('lambda','beta_mat_f','beta_mat_b')){
+      acceptance_rates[[varname]][jj]=0
+
+      out=update_var_generic(current_values,Xdata,q_info,proposal_sigs,likfun=likelihood_longitudinal,varname=varname)
+      current_values=out$newvalue
+      acceptance_rates[[varname]][jj]=acceptance_rates[[varname]][jj]+(out$accepts)/nsteps
+
+      stored_parameters[[storej]]=current_values
+      mi=max(1,jj-batch_size)
+
+    }
+    assign("proposal_sigs",proposal_sigs,envir = .GlobalEnv)
+    for(varname in varname_list)
+    {
+      #rosenthall and roberts algorithm
+      delta=ifelse(mean(acceptance_rates[[varname]][batch_size:jj],na.rm=T)>.44,
+                   min(.01,1/sqrt(jj)),-min(.01,1/sqrt(jj)))
+      proposal_sigs[[varname]]=proposal_sigs[[varname]]*exp(delta)
+      if(proposal_sigs[[varname]]>1 | is.na(proposal_sigs[[varname]])){
+        proposal_sigs[[varname]]=1
+      }
+    }
+  }
+  return(stored_parameters)
+}
+
+
+
+#
+# run_mcmc_sampler_longitudinal<-function(X,Q,M,init_vals=NULL,verb=T){
+#   X=list(X1=X,X2=X)
+#   varname_list=c('lambda1','lambda2')
+#   proposal_sigs=list('lambda1'=.1,'lambda1'=.1)
+#   sum_funs=list('lambda'=identity,'continuous_effects'=identity)
+#
+#   if(is.null(init_vals)){
+#     init_vals=gen_initial_values_continuous(X,Q)
+#   }
+#   current_values=init_vals
+#
+#   # M=configfile$M
+#   store_iter=1
+#   batch_size=1000
+#   q_info=generate_q_info(Q)
+#
+#   acceptance_rates=lapply(varname_list,function(x) rep(NA,M))
+#   names(acceptance_rates)=varname_list
+#   update_sigma_tf=lapply(varname_list,function(x) FALSE)
+#   names(update_sigma_tf)=varname_list
+#
+#   stored_parameters=list(current_values)
+#
+#   start_index=1
+#   nsteps=1
+#
+#   for(jj in start_index:M)
+#   {
+#     if(jj%%10==0 & verb){
+#       print(jj)
+#     }
+#     store=jj%%store_iter==0
+#     storej=floor(jj/store_iter)
+#
+#     update_functions=list('lambda'=function(x) update_lambda(x,X,q_info,proposal_sigs,continuous),
+#                           'continuous_effects'=function(x) update_continuous_effects(x,X,q_info,proposal_sigs))
+#     for(varname in varname_list){
+#       out=update_functions[[varname]](current_values)
+#       current_values=out$newvalue
+#       acceptance_rates[[varname]][jj]=acceptance_rates[[varname]][jj]+(out$accepts)/nsteps
+#
+#       stored_parameters[[storej]]=current_values
+#       mi=max(1,jj-batch_size)
+#     }
+#     for(varname in varname_list)
+#     {
+#       #rosenthall and roberts algorithm
+#       delta=ifelse(mean(acceptance_rates[[varname]][batch_size:jj],na.rm=T)>.44,
+#                    min(.01,1/sqrt(jj)),-min(.01,1/sqrt(jj)))
+#       proposal_sigs[[varname]]=proposal_sigs[[varname]]*exp(delta)
+#       if(proposal_sigs[[varname]]>1){
+#         proposal_sigs[[varname]]=1
+#       }
+#       assign("proposal_sigs",proposal_sigs,envir = .GlobalEnv)
+#     }
+#   }
+#   return(stored_parameters)
+#
+#
+# }

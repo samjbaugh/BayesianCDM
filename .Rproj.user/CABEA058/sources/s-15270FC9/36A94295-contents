@@ -1,0 +1,69 @@
+data {
+  int<lower=0> Nz;
+  int<lower=0> Nq;
+  int<lower=0> Nskill;
+  int<lower=0> Ninteraction;
+  int<lower=0> Nprofile;
+  int<lower=0,upper=Nq> interaction_qids[Ninteraction];
+  int<lower=0,upper=1> interaction_in_profile[Ninteraction,Nprofile];
+  int<lower=0,upper=1> Q[Nq,Nskill];
+  int<lower=0,upper=1> skill_in_profile[Nskill,Nprofile];
+  int<lower=0,upper=1> X[Nz,Nq];
+}
+
+parameters {
+  simplex[Nprofile] theta;          // mixing proportions
+  real intercepts[Nq];
+  real<lower=0> base_effects[Nq,Nskill];
+  real interaction_effects[Ninteraction];
+  real continuous_attributes[Nprofile];
+}
+
+transformed parameters{
+  vector[Nprofile] log_theta = log(theta);
+  real mylogits[Nq,Nprofile];
+
+  for(iprofile in 1:Nprofile){
+    for(iquestion in 1:Nq){
+      real myprob = intercepts[iquestion];
+      for(iskill in 1:Nskill){
+        if((Q[iquestion,iskill]==1) && (skill_in_profile[iskill,iprofile]==1)){
+          myprob += base_effects[iquestion,iskill];
+        }
+      }
+      for(i_interaction in 1:Ninteraction){
+        if(interaction_qids[i_interaction]==iquestion &&
+           interaction_in_profile[i_interaction,iprofile]==1){
+          myprob += interaction_effects[i_interaction];
+        }
+      }
+      mylogits[iquestion,iprofile]=myprob;
+    }
+  }
+}
+
+model {
+  for(iquestion in 1:Nq){
+    intercepts[iquestion]~normal(0,5);
+  }
+  for(iquestion in 1:Nq){
+    for(iskill in 1:Nskill){
+      base_effects[iquestion,iskill]~normal(0,5);
+    }
+  }
+  for(i_interaction in 1:Ninteraction){
+    interaction_effects[i_interaction]~normal(0,5);
+  }
+  // ret_logits=matrix(0,Nq,Nprofile)
+  for(iperson in 1:Nz){
+    vector[Nprofile] lps = log_theta;
+    for(iprofile in 1:Nprofile){
+      for(iquestion in 1:Nq){
+        real continuous_effect=mylogits[iquestion]*continuous_attributes[iprofile];
+        lps[iprofile]+=bernoulli_logit_lpmf(X[iperson,iquestion]|continuous_effect);
+      }
+    }
+    target+=log_sum_exp(lps);
+  }
+
+}

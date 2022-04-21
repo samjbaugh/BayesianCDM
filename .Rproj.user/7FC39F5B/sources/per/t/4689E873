@@ -1,0 +1,27 @@
+{
+    "id": "4689E873",
+    "path": "~/Dropbox/MJProjects/CogDiagModels/Markdown/fit_comparison.Rmd",
+    "project_path": null,
+    "type": "r_markdown",
+    "hash": "3779708417",
+    "contents": "",
+    "dirty": false,
+    "created": 1632518822248.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "chunk_output_type": "inline",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "79,26",
+        "scrollLine": "64"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1632765384,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1632765384711,
+    "read_only": false,
+    "read_only_alternatives": []
+}

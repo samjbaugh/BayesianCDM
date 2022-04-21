@@ -1,0 +1,102 @@
+
+
+
+ELBO_EM<-function(variational_dist,nsamples=5){
+  value_vec=rep(NA,nsamples)
+  for(isamp in 1:nsamples){
+    sampled_lambda=rnorm(dim(variational_dist)[1],mean=variational_dist$lambda_mean,
+                         sd=variational_dist$lambda_sd)
+    sample_vals=list('lambda'=sampled_lambda,
+                     'log_theta'=init_vals$log_theta,
+                     'value_key'=init_vals$value_key)
+
+    value_vec[isamp]=likelihood_master(sample_vals,X,q_info)
+  }
+
+  term1=mean(value_vec)
+  term2=sum(log(variational_dist$lambda_sd))
+  prior_term=-sum(variational_dist$lambda_mean^2)-
+    sum(variational_dist$lambda_sd^2)
+  return(-(term1+term2+prior_term))
+}
+
+variational_dist_init=data.frame(lambda_mean=init_vals$lambda,
+                                 lambda_sd=log(.1))
+
+nlambda=dim(variational_dist_init)[1]
+variational_em_optim_wrapper<-function(x){
+  variational_input=data.frame(lambda_mean=x[1:nlambda],
+                               lambda_sd=exp(x[(nlambda+1):(2*nlambda)]))
+  return(ELBO_EM(variational_input))
+}
+
+initvec=c(variational_dist_init$lambda_mean,variational_dist_init$lambda_sd)
+t_vem=system.time({
+  opt_out_vem=optim(initvec,variational_em_optim_wrapper,control=list(trace=6))})
+
+opt_vals_vem=list(lambda=optout_vem$par,
+                  value_key=value_key,
+                  log_theta=log_theta)
+
+pred_profs_vem=vals_to_preds(opt_vals_vem,Q)
+
+fit_info['variational_em_cdmfits','t']=t_vem[3]
+fit_info['variational_em_cdmfits','accuracy']=mean(pred_profs_vem==true_attributes)
+fit_info
+
+#
+# q_info=generate_q_info(Q)
+#
+# init_vals_variational=list('lambda_qmu'=variational_means,
+#                            'lambda_qsd'=variational_sds,
+#                            'theta'=init_vals$theta)
+# current_variational=init_vals_variational
+#
+#
+# nsampled=sum(is_sampled)
+#
+#       optim_fun_ij=function(aa) {
+#
+#           actual_mus=is_sampled
+#           actual_mus[is_sampled==1]=aa[1:nsampled]
+#           # actual_sds=is_sampled
+#           # actual_sds[is_sampled==1]=exp(aa[(nsampled+1):(2*nsampled)])
+#
+#           calc_vals=list(lambda_qmu=actual_mus,
+#                          lambda_qsd=actual_sds,
+#                          theta=init_vals$theta)
+#           elbo_val=ELBO_fun(calc_vals)
+#           print(aa)
+#           print(elbo_val)
+#           return(elbo_val)
+#       }
+#       start_vals=c(init_vals_variational$lambda_qmu[is_sampled==1])
+#       actual_sds=(init_vals_variational$lambda_qsd)
+#                    # log(init_vals_variational$lambda_qsd[is_sampled==1]))
+#       opt_out=optim(start_vals,
+#                         optim_fun_ij,control=list(trace=7,maxit=10000))
+#
+#       save(opt_out,file='opt_out_5942.RData')
+#
+#       ss=opt_out$par[1:nsampled]
+#       mean_lambdas=is_sampled
+#       mean_lambdas[is_sampled==1]=ss
+#         probout=generate_probs(mean_lambdas,
+#                                init_vals$theta)
+#
+#       l1=apply(probout$lps,1,function(A) {
+#         A2=A;  y=apply(A2,2,sum);  which(y==max(y))})
+#       mean(l1==(true_attributes))
+#       # View(probout$myprobs)
+#
+#       View(probout$myprobs)
+#
+#       probout2=generate_probs(init_vals_variational$lambda_qmu,
+#                               init_vals$theta)
+#       l2=apply(probout2$lps,1,function(A) {
+#         A2=A;  y=apply(A2,2,sum);  which(y==max(y))})
+#       mean(l2==(true_attributes))
+#       # View(probout$myprobs)
+#
+#       # current_variational=
+#

@@ -1,0 +1,6 @@
+vec1=current_paramvec
+vec2=current_paramvec+1
+a1=convert_vector_to_params(vec1,paraminfo)
+a2=convert_vector_to_params(vec2,paraminfo)
+likelihood_master(a1,Xdata,q_info)
+likelihood_master(a2,Xdata,q_info)

@@ -1,0 +1,118 @@
+#' Updates lambda vector
+#'
+#' @param myvalues Current values
+#' @return Returns a list containing "newvalue", which is the
+#' newly sampled value, "alpha" which is the proposal-current
+#' likelihood ratio, and "accepts" which is the vector of boolean
+#' values of metropolis-hastings proposal acceptance
+#' @export
+update_lambda<-function(current_values,X,q_info,proposal_sigs,likfun=likelihood_continuous)
+{
+  proposal_sig=proposal_sigs$lambda
+  nlambda=length(current_values$lambda)
+  proposed_lambdas=rnorm(n=nlambda,
+                         mean=current_values$lambda,
+                         sd=proposal_sig)
+  proposed_values=current_values
+  proposed_values$lambda=proposed_lambdas
+
+  # if(continuous){
+    likelihood_fun<-function(x) {(likfun(x,X,q_info))}
+  # }else{
+    # likelihood_fun<-function(x) {(likelihood_discrete(x,X,q_info))}
+  # }
+  prior_fun=function(x) {normal_prior(x,'lambda')}
+
+  logdiff_likelihood=likelihood_fun(proposed_values)-
+    likelihood_fun(current_values)
+  logdiff_prior=prior_fun(proposed_values)-
+    prior_fun(current_values)
+
+  alpha=exp(logdiff_likelihood+logdiff_prior)
+  randnum=runif(1) #one for each k or i
+  if(alpha>randnum){
+    retval=proposed_values
+    accepts=T
+  }else{
+    retval=current_values
+    accepts=F
+  }
+
+  return(list("newvalue"=retval,"alpha"=alpha,"accepts"=accepts))
+}
+
+update_var_generic<-function(current_values,Xdata,q_info,
+                             proposal_sigs,likfun=likelihood_longitudinal,
+                             varname='s')
+{
+  proposal_sig=proposal_sigs[[varname]]
+  if(!is.matrix(current_values[[varname]])){
+    current_values[[varname]]=matrix(current_values[[varname]],length(current_values[[varname]]),1)
+  }
+  vardim=dim(current_values[[varname]])
+  proposal=current_values[[varname]]+
+    matrix(rnorm(n=prod(vardim),sd=proposal_sig),vardim[1],vardim[2])
+  proposed_values=current_values
+  proposed_values[[varname]]=proposal
+
+  likelihood_fun<-function(x) {(likfun(x,Xdata,q_info))}
+  prior_fun=function(x) {normal_prior(x,varname)}
+
+  logdiff_likelihood=likelihood_fun(proposed_values)-
+    likelihood_fun(current_values)
+  logdiff_prior=prior_fun(proposed_values)-
+    prior_fun(current_values)
+
+  alpha=exp(logdiff_likelihood+logdiff_prior)
+  randnum=runif(1) #one for each k or i
+  if(alpha>randnum){
+    retval=proposed_values
+    accepts=T
+  }else{
+    retval=current_values
+    accepts=F
+  }
+
+  return(list("newvalue"=retval,"alpha"=alpha,"accepts"=accepts))
+}
+
+
+#' Updates lambda vector
+#'
+#' @param myvalues Current values
+#' @return Returns a list containing "newvalue", which is the
+#' newly sampled value, "alpha" which is the proposal-current
+#' likelihood ratio, and "accepts" which is the vector of boolean
+#' values of metropolis-hastings proposal acceptance
+#' @export
+update_continuous_effects<-function(current_values,X,q_info,proposal_sigs)
+{
+  proposal_sig=proposal_sigs$continuous_effects
+  dim_ce=dim(current_values$continuous_effects)
+  proposed_continuous_effects=matrix(rnorm(n=prod(dim_ce),
+                         mean=current_values$continuous_effects,
+                         sd=proposal_sig),dim_ce[1],dim_ce[2])
+  proposed_values=current_values
+  proposed_values$continuous_effects=proposed_continuous_effects
+
+  likelihood_fun=function(x) {(likelihood_continuous(x,X,q_info))}
+  prior_fun=function(x) {normal_prior(x,'continuous_effects')}
+
+  logdiff_likelihood=likelihood_fun(proposed_values)-
+    likelihood_fun(current_values)
+  logdiff_prior=prior_fun(proposed_values)-
+    prior_fun(current_values)
+
+  alpha=exp(logdiff_likelihood+logdiff_prior)
+  randnum=runif(1) #one for each k or i
+  if(alpha>randnum){
+    retval=proposed_values
+    accepts=T
+  }else{
+    retval=current_values
+    accepts=F
+  }
+
+  return(list("newvalue"=retval,"alpha"=alpha,"accepts"=accepts))
+}
+

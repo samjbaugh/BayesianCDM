@@ -1,0 +1,175 @@
+#' Master likelihood function for logit additive cdm model
+#'
+#' @param inputvals Input values
+#' @return Returns matrix of likelihoods of size X
+#' @export
+likelihood_discrete<-function(inputvals,X,q_info)
+{
+  mylogits=logit_probs_from_vals(inputvals,q_info)
+  Nz=dim(X)[1]
+
+  person_lik=function(iperson) log_sum_exp(inputvals$log_theta+
+                                             apply(dbinom(X[iperson,],1,logit(mylogits),log=T),2,sum))
+  retval=sum(map_dbl(1:Nz,person_lik))
+
+  return(sum(retval))
+}
+
+#phase out
+compute_transition_matrix_old=function(inputvals,Xdata,q_info){
+  design_mat=Xdata$design_mat
+  Nprofile=q_info$profile_list%>%length
+  transition_matrix=matrix(NA,Nprofile,Nprofile)
+  forward_transitions=(logit(design_mat%*%t(inputvals$beta_mat_f))) #c(.72,.65,.923)
+  backward_transitions=(logit(design_mat%*%t(inputvals$beta_mat_b)))  #c(.2,.1,.05)
+  Nz=dim(design_mat)[1]
+  transition_matrix=array(NA,c(Nprofile,Nprofile,Nz))
+    for(i in 1:Nprofile){
+      for(j in 1:Nprofile){
+        iprof=q_info$profile_list[[i]]
+        jprof=q_info$profile_list[[j]]
+        transition_matrix[i,j,]=exp(apply(
+          sweep(log(1-backward_transitions),2,(iprof*jprof),'*')+
+          sweep(log(forward_transitions),2,(1-iprof)*jprof,'*')+
+          sweep(log(backward_transitions),2,(1-jprof)*iprof,'*')+
+          sweep(log(1-forward_transitions),2,(1-jprof)*(1-iprof),'*'),
+          1,sum))
+        }
+    }
+  return(transition_matrix)
+}
+
+likelihood_longitudinal<-function(inputvals,Xdata,q_info)
+{
+  transition_matrix=compute_transition_matrix(inputvals,Xdata,q_info)
+  mylogits=logit_probs_from_vals(inputvals,q_info)
+  Nz=dim(Xdata$Xs[[1]])[1]
+  ntime=length(Xdata$Xs)
+
+  ll=function(i,j,iperson) sum(dbinom(Xdata$Xs[[1]][iperson,],1,logit(mylogits[,i]),log=T)+
+    dbinom(Xdata$Xs[[2]][iperson,],1,logit(mylogits[,j]),log=T)+
+    transition_matrix[i,j,iperson])
+  get_person_lik=function(iperson){
+    log_sum_exp(map(1:Nprofile,function(x) map_dbl(1:Nprofile,~ll(.,x,iperson)))%>%
+                  {do.call(c,.)})
+  }
+  retval=map_dbl(1:Nz,get_person_lik)
+  return(sum(retval))
+}
+
+convert_beta=function(betamat,q_info){
+  a1=apply(betamat[,1]*q_info$skill_in_profile,2,function(x) prod(logit(x)))
+  return(a1)
+}
+
+
+
+likelihood_continuous=function(inputvals,X,q_info)
+{
+  intercepts=inputvals$lambda[value_key=='intercepts']
+  base_effects=matrix(inputvals$lambda[value_key=='base_effects'],Nq,Nskill)
+  interactions=inputvals$lambda[value_key=='interactions']
+  continuous_effects=inputvals$continuous_effects
+
+  Nq=dim(base_effects)[1]
+  Nskill=dim(q_info$Q)[2]
+  Nprofile=2^Nskill
+
+  Ninteraction=length(interactions)
+
+  ret_logits=array(0,c(Nq,Nprofile,Nz))
+  for(iperson in 1:Nz){
+    for(iquestion in 1:Nq){
+      for(iprofile in 1:Nprofile){
+        myprob =intercepts[iquestion];
+        for(iskill in 1:Nskill){
+          if(q_info$Q[iquestion,iskill]==1 &
+             q_info$skill_in_profile[iskill,iprofile]==1){
+            myprob =myprob +
+              base_effects[iquestion,iskill]*continuous_effects[iskill,iperson];
+          }
+        }
+        for(i_interaction in 1:Ninteraction){
+          if(q_info$interaction_qids[i_interaction]==iquestion &
+             q_info$interaction_in_profile[i_interaction,iprofile]==1){
+            interaction_skills=q_info$interaction_list[[i_interaction]]$interaction
+            ce=prod(continuous_effects[interaction_skills,iperson])
+            myprob = myprob+interactions[i_interaction]*ce;
+          }
+        }
+        ret_logits[iquestion,iprofile,iperson]=myprob
+      }
+    }
+  }
+  ret_logits_weights=ret_logits%>%apply(c(1,3),function(x) inputvals$log_theta+x)
+  retval=map_dbl(1:Nz,function(x) sum(dbinom(X[iperson,],1,logit(ret_logits_weights[,,iperson]),log=T)))
+  return(sum(retval))
+}
+
+#VEM ELBO
+cdm_discrete_VEM_ELBO=function(variational_dist,X,Q,init_vals){
+  nsamples=5
+  value_vec=rep(NA,nsamples)
+  q_info=generate_q_info(Q)
+  nlambda=length(variational_dist$lambda_mean)
+  samp_ELBO=function(x){
+    sampled_lambda=rnorm(nlambda,
+                         mean=variational_dist$lambda_mean,
+                         sd=variational_dist$lambda_sd)
+    sample_vals=list('lambda'=sampled_lambda,
+                     'log_theta'=init_vals$log_theta,
+                     'value_key'=init_vals$value_key)
+    return(likelihood_discrete(sample_vals,X,q_info))
+  }
+  value_vec=map_dbl(1:nsamples,samp_ELBO)
+  #compute expectation
+  term1=mean(value_vec)
+  term2=sum(log(variational_dist$lambda_sd))
+  prior_term=-sum(variational_dist$lambda_mean^2)-
+    sum(variational_dist$lambda_sd^2)
+  return(-(term1+term2+prior_term))
+}
+
+#VEM ELBO
+cdm_continuous_VEM_ELBO=function(variational_dist,X,Q,init_vals){
+  nsamples=5
+  value_vec=rep(NA,nsamples)
+  q_info=generate_q_info(Q)
+  nlambda=length(variational_dist$lambda_mean)
+  ncontinuous_effects=prod(dim(variational_dist$continuous_effects))
+  samp_ELBO=function(x){
+    sampled_lambda=rnorm(nlambda,
+                         mean=variational_dist$lambda_mean,
+                         sd=variational_dist$lambda_sd)
+    sampled_continuous_effects=rnorm(ncontinuous_effects,
+                         mean=variational_dist$continuous_effects_mean,
+                         sd=variational_dist$continuous_effects_sd)
+    sample_vals=list('lambda'=sampled_lambda,
+                     'log_theta'=init_vals$log_theta,
+                     'value_key'=init_vals$value_key,
+                     'continuous_effects'=matrix(sampled_continuous_effects,
+                                                 Nz,Nskill))
+    return(likelihood_continuous(sample_vals,X,q_info))
+  }
+  value_vec=map_dbl(1:nsamples,samp_ELBO)
+  #compute expectation
+  term1=mean(value_vec)
+  term2=sum(log(variational_dist$lambda_sd))
+  prior_term=-sum(variational_dist$lambda_mean^2)-
+    sum(variational_dist$lambda_sd^2)-
+    sum(variational_dist$continuous_effects_mean^2)-
+    sum(variational_dist$continuous_effects_sd^2)
+  return(-(term1+term2+prior_term))
+}
+
+
+#' Normal prior
+#'
+#' @param myvalues Parameter values
+#' @param varname Variable name
+#' @return Returns normal prior log probability
+normal_prior<-function(myvalues,varname)
+{
+  given_vector=myvalues[[varname]]
+  return(sum(-(given_vector^2)/(2*myvalues[[paste('sigma',varname,sep='_')]]^2)))
+}

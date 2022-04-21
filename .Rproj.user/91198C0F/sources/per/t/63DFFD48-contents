@@ -1,0 +1,87 @@
+---
+title: "Example Fits: Diagnostic Model Continuous"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+  df_print: paged
+pdf_document: default
+html_notebook: default
+---
+
+This document will demonstrate the use of the "cdmfits" package to fit Bayesian longitudinal cognitive diagnostic models using MCMC and variational inference. There are options for multi-level structures as well. To begin with, we will define the model:
+
+## Model Equations: 
+
+Discrete and Continuous, Logit vs Probit
+
+With one time-point, the model set-up is:
+
+\begin{equation}
+   g(P(X_{ip}=0))=\theta_{0;i}+Q_{i,1}\alpha_{p,1}\theta_{1;i}+Q_{i,2}A_{p,2}\alpha_{2;i}+Q_{i,1}Q_{i,2}A_{p,1}A_{p,2}\alpha_{(1,2);i}
+\end{equation}
+
+Choices for this model include discrete and continuous parameterizations for the skill parameters $A_{p,1}$, and logit vs. probit construction for the parameter $g$.
+
+With multiple time points, the model set-up is:
+
+
+\begin{equation}
+  \textnormal{logit}P(X_{ip}^{(t)}=0)=\theta_{0;i}+Q_{i,1}A_{p,1}^{(t)}\theta_{1;i}+Q_{i,2}A_{p,2}^{(t)}\theta_{2;i}+Q_{i,1}Q_{i,2}A_{p,1}^{(t)}A_{p,2}^{(t)}\theta_{(1,2);i}
+\end{equation}
+
+Here, we additionally 
+
+
+## Generating Data
+
+
+## MCMC Single Time Point
+
+## Variational Single Time Point
+
+## MCMC Longitudinal
+
+## Variational Longitudinal
+
+## Adding multi-level structure
+
+```{r}
+# devtools::load_all(".")
+require(cdmfits)
+require(tidyverse)
+
+simout=simulated_cdm_data(Nskill=3,seed=123,Nresp_per_profile = 20)
+X=simout$X
+Q=simout$Q
+true_attributes=simout$true_attributes
+
+model_names=c('mcmc_cdmfits',
+              'variational',
+              'em_cdmfits',
+              'variational_em_cdmfits',
+              'mcmc_stan',
+              'gdina_CDM')%>%set_names(.,.)
+fit_info=data.frame(name=model_names,
+                    t=NA,accuracy=NA)
+```
+
+
+### Section 1
+
+Fit standard MCMC model with 1000 iterations (takes about twenty seconds):
+
+```{r}
+M=1000
+
+```
+
+
+Variational Bayes:
+
+```{r}
+#this requires cmdstanr to be installed:
+M=2
+
+
+```

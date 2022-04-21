@@ -1,0 +1,26 @@
+{
+    "id": "D034336C",
+    "path": "~/Dropbox/MJProjects/CogDiagModels/Scripts/01_mcmc_fit.R",
+    "project_path": null,
+    "type": "r_source",
+    "hash": "2285936121",
+    "contents": "",
+    "dirty": false,
+    "created": 1638547122582.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "tempName": "Untitled1",
+        "cursorPosition": "3,10",
+        "scrollLine": "0",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1639170227,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1639170227212,
+    "read_only": false,
+    "read_only_alternatives": []
+}

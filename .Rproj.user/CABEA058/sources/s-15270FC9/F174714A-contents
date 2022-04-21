@@ -1,0 +1,45 @@
+require(tidyverse)
+simout=simulated_cdm_data_longitudinal(Nskill=2,seed=123,Nresp_per_profile = 20)
+Xdata=simout$Xdata
+Q=simout$Q
+true_attributes=simout$true_attributes
+
+q_info=generate_q_info(Q)
+# mcmc_values=gen_initial_values_longitudinal(Xdata,Q)
+# compute_transition_matrix(mcmc_values,Xdata=Xdata,q_info)
+mcmc_out=run_mcmc_sampler_longitudinal(Xdata,Q,1000)
+last_parameter=mcmc_out[[length(mcmc_out)]]
+transmat=compute_transition_matrix(last_parameter,Xdata,q_info)[,,80]
+
+transmat_disp=paste0(round(transmat*100,1),'%')%>%matrix(dim(transmat)[1],dim(transmat)[2])
+rownames(transmat_disp)=map_chr(q_info$profile_list,~paste(.,collapse = ''))
+colnames(transmat_disp)=map_chr(q_info$profile_list,~paste(.,collapse = ''))
+xtable::xtable(transmat_disp)
+
+last_parameter$beta_mat_f
+last_parameter$beta_mat_b
+mcmc_values$beta_mat_f
+mcmc_values$beta_mat_b
+
+current_values
+Xtest=list(design_mat=matrix(c(1,0),1,2))
+compute_transition_matrix(mcmc_values,Xdata=Xtest,q_info)
+
+
+inputvals$beta=c(1,1,1)
+design_mat=matrix(rep(1,3),3,1)
+
+
+# generate_transition_probabilities=function(base_transitions,transition_covariates,
+#                                            covariate_list){
+#   if(time_points>1){
+#     true_transition_probabilities=matrix(NA,Nprofile,Nprofile)
+#     for(i in 1:Nz){
+#       for(j in 1:Nq){
+#         prof1=q_info$profile_list[[i]]
+#         prof2=q_info$profile_list[[i]]
+#         true_transition_probabilities[i,j]=
+#       }
+#     }
+#
+# }

@@ -1,0 +1,210 @@
+---
+title: "Orbital Tumor Analysis"
+author: "Samuel Baugh"
+date: "9/15/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+Read in the new data:
+
+```{r,message=FALSE}
+require(tidyverse)
+require(tidymodels)
+require(readxl)
+
+factor_list=c('Axial_location','Conal_Location','Coronal_location',
+          'Effect_on_globe','T2_Intensity','T2_homogeneity','T2_regionality')
+
+factor_list=c('Sex','Laterality','Bony_changes','Shape','T1_Intensity','T1_homogeneity','T1_regionality',
+              'Axial_location','Conal_Location','Coronal_location',
+              'Effect_on_globe','T2_Intensity','T2_homogeneity','T2_regionality',
+              'MRI_EarlyCon_Intensity','MRI_EarlyCon_Pattern')
+
+tumor_data=read_excel('tumor_sep14_2021.xlsx')%>%
+  # mutate(across(everything(),~replace(.,.=='.' | .=='NA',NA)))%>%
+  set_names(.,.[1,]%>%assign_in(76,'N/A')%>%sapply(as.character))%>%
+  .[-c(1:7),]%>%mutate(Dx=factor(Dx,levels=c('1','2','3','4'),
+                                 labels=c('sft','schwannoma','cvm','wcl')))%>%
+  mutate(across(everything(),~replace(.,.=='.' | .=='NA',NA)))%>%
+  mutate(Axial_location=replace(Axial_location,Axial_location%in%c('1 , 3','3,1'),'1,3'))%>%
+  mutate(Axial_location=replace(Axial_location,Axial_location%in%c('3, 4'),'3,4'))%>%
+  mutate(T1_Intensity=T1_Intensity%>%replace(.%in%c('No MR','NO MR','No MRI','NO MRI'),NA))%>%
+  mutate(T2_Intensity=T2_Intensity%>%replace(.%in%c('No MR','NO MR','No MRI','NO MRI'),NA))%>%
+  mutate(MRI_EarlyCon_Intensity=MRI_EarlyCon_Intensity%>%replace(.%in%c('NO CONTRAST','2'),NA))%>%
+  mutate(T2_Intensity=T2_Intensity%>%replace(.%in%c('1 and 2'),'1,2'))%>%
+  mutate(across(all_of(factor_list),factor))
+
+tumor_data
+```
+
+Frequency table for Dx:
+
+```{r}
+tumor_data%>%group_by(Dx)%>%count(Dx)
+```
+
+
+Compute contingency tables (example for Effect on Globe):
+
+```{r}
+
+factor_list=c('Sex','Laterality','Bony_changes','Shape','T1_Intensity','T1_homogeneity','T1_regionality',
+              'Axial_location','Conal_Location','Coronal_location',
+              'Effect_on_globe','T2_Intensity','T2_homogeneity','T2_regionality',
+              'MRI_EarlyCon_Intensity','MRI_EarlyCon_Pattern')
+contingency_tables=
+  map(factor_list,~table(tumor_data$Dx,tumor_data[[.]]))%>%
+  set_names(factor_list)
+contingency_tables$Effect_on_globe
+```
+
+
+Compute pairwise and overall fisher exact tests:
+
+```{r}
+calc_fisher_exact<-function(x) {
+  rcompanion::pairwiseNominalIndependence(x,gtest=F,chisq=F)[,-2]}
+
+ftest_res=map(contingency_tables,calc_fisher_exact)%>%
+  tibble(names=names(.),results=.)%>%
+  unnest(results)%>%
+  pivot_wider(names_from=Comparison,
+              values_from=p.adj.Fisher)%>%
+  mutate(fp=(map_dbl(contingency_tables,~fisher.test(.,workspace=2e8)$p.value)))
+
+ftest_res
+```
+
+```{r,message=FALSE}
+require(tidymodels)
+selected_columns=c("Dx","Size","Coronal_location","Conal_Location",
+                       "Axial_location","Effect_on_globe","T1_regionality",
+                       "T2_Intensity","T2_homogeneity","T2_regionality",
+                       "MRI_EarlyCon_Intensity","MRI_LateCon_Intensity")
+# myseed=runif(1,0,1e9)
+myseed=521579695
+set.seed(myseed)
+tumor_data_clean=tumor_data[,selected_columns]%>%
+  na.omit
+tumor_split=initial_split(tumor_data_clean)
+train_data=training(tumor_split)
+test_data=testing(tumor_split)
+
+rf=randomForest::randomForest(Dx~.,data=train_data,ntree=100,mtry=3,importance=TRUE)
+
+
+pred=predict(rf,newdata=test_data)
+confusion_matrix=table(test_data$Dx,pred)
+importances=randomForest::importance(rf,type=1)
+
+confusion_matrix
+randomForest::varImpPlot(rf,type=1)
+
+```
+
+Select the top 5, and then re-do the fit and see the resulting confusion matrix:
+
+```{r,message=FALSE}
+top5_columns_rf=importances%>%data.frame(names=rownames(.))%>%
+  arrange(desc(MeanDecreaseAccuracy))%>%.[1:5,'names']%>%c('Dx')
+# top5_columns_rf=c("Dx","MRI_EarlyCon_Intensity","T2_Intensity","T2_homogeneity","MRI_LateCon_Intensity","Conal_Location")
+
+set.seed(918572013)
+tumor_data_selected=tumor_data[,top5_columns_rf]
+for(colname in top5_columns_rf[top5_columns_rf!='Dx']){
+  tumor_data_selected[[colname]]=tumor_data_selected[[colname]]%>%
+    modify_if(~.%in%(data.frame(table(tumor_data_selected[[colname]]))%>%
+    filter(Freq<3)%>%.$Var1),~NA)%>%
+    factor(levels=unique(.[!is.na(.)]),labels=unique(.[!is.na(.)]))
+}
+tumor_data_selected=tumor_data_selected%>%na.omit
+
+tumor_split=initial_split(tumor_data_selected)
+train_data=training(tumor_split)
+test_data=testing(tumor_split)
+
+rf=randomForest::randomForest(Dx~.,data=train_data,ntree=100,mtry=3,importance=TRUE)
+
+pred=predict(rf,newdata=test_data)
+confusion_matrix=table(test_data$Dx,pred)
+importances=randomForest::importance(rf,type=1)
+
+confusion_matrix
+randomForest::varImpPlot(rf,type=1)
+```
+
+
+Predictive models:
+
+```{r,message=FALSE}
+require(pROC)
+# myseed=runif(1,0,1e9)
+myseed=461890874
+set.seed(myseed)
+tumor_split=initial_split(tumor_data_selected)
+train_data=training(tumor_split)
+test_data=testing(tumor_split)
+
+myformula=formula(paste("Dx~",'.',sep = ""))
+
+multinom_model_full=nnet::multinom(data=tumor_data_selected,Dx~.)
+multinom_model_training=nnet::multinom(data=train_data,Dx~.)
+multinom_predictions=predict(multinom_model_training,newdata=test_data,
+                             type = "probs")%>%data.frame
+
+levels_Dx=levels(test_data$Dx)
+data_lists=
+  map(levels_Dx,function(levelDx)
+    data.frame(predictor=multinom_predictions[[levelDx]],
+               response=ifelse(test_data$Dx==levelDx,1,0)))%>%
+  set_names(levels_Dx)
+roc_obj=data_lists%>%map(~roc(as.numeric(.$response),as.numeric(.$pred)))
+ggroc(roc_obj)
+save_data=F
+if(save_data){
+  save(tumor_data_selected,
+       multinom_model_full,file='multinom_model.RData')
+  
+    save(tumor_data_selected,
+       multinom_model_full,file='multinom_model.RData')
+    
+}
+```
+
+```{r}
+pred_probabilities=predict(multinom_model_full,newdata=tumor_data_selected,
+                           type = 'probs')
+
+dim(pred_probabilities)
+sample(levels_Dx,)
+bootstrapped_accuracies=pred_probabilities%>%
+  apply(1,function(x) sample(levels_Dx,size=10000,prob=x,rep=T))%>%
+  apply(1,function(x) mean(x==tumor_data_selected$Dx))
+pred_acc=mean(bootstrapped_accuracies)
+sterror=sd(bootstrapped_accuracies)
+
+zalpha=qnorm(.975)
+CI=c(mean(bootstrapped_accuracies)-sterror*zalpha,
+     mean(bootstrapped_accuracies)+sterror*zalpha)
+
+data.frame(CI_025=CI[1],pred_acc=pred_acc,CI_975=CI[2])
+print(CI)
+```
+
+Table of aggregated AJCC values:
+
+```{r}
+SEER_data_AJCC_aggregate=read.csv('SEER_data_AJCC_aggregate.csv')
+data.frame(table(SEER_data_AJCC_aggregate$AJCC_aggregate))
+
+```
+
+Table of sequence numbers from SEER data:
+
+```{r}
+data.frame(table(SEER_data_AJCC_aggregate$Sequence.number))
+```
+
