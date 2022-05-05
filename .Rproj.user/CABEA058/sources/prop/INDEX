@@ -8,6 +8,8 @@
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FNewCode%2Finitialize_sampler.R="04CCF8C2"
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FNewCode%2Fsimulate_data.R="DAF4D74D"
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F01_code_vignette.R="71DF885F"
+~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F01_example_mcmc.R="5051B32A"
+~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F02_example_variational_logistic.R="3B6BC1F0"
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F04_variational_em.R="67084BD9"
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F05_variational_stan_gradient.R="4E51741D"
 ~%2FDropbox%2FMJProjects%2FCogDiagModels%2FScripts%2F06_timepoint_fit.R="9ECBEC74"

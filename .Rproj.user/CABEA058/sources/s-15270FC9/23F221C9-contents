@@ -1,4 +1,0 @@
-forward_betas=lapply(1:Nskill,gen_forward)
-forward_betas2=simplify2array(lapply(1:Nskill,gen_forward))
-forward_betas[[2]]
-forward_betas2[,,2]

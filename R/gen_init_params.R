@@ -11,7 +11,7 @@
 #' @export
 gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
                                           Nrespcov=0,Ngroupcov=0,
-                                          Ngroup=2,seed=NA){
+                                          Ngroup=2,seed=NULL){
   if(!is.null(seed)){
     set.seed(seed)
   }
