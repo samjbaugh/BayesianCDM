@@ -50,15 +50,17 @@ mcmc_sampler_main=function(Xdata,initparams,M){
   accepts[1]=T
 
   for(i in 2:M){
-      print(i)
+     print(i)
      proposed_paramvec=current_paramvec+rnorm(Nparams,0,sd=proposal_sds)
      proposed_likelihood=lik_wrapper(proposed_paramvec)
      proposed_prior=prior_wrapper(proposed_paramvec)
 
-     mhval=proposed_likelihood-current_likelihood-
+     mhval=proposed_likelihood-current_likelihood+
        proposed_prior-current_prior
      if(exp(mhval)>runif(1)){
        current_paramvec=proposed_paramvec
+       current_likelihood=proposed_likelihood
+       current_prior=proposed_prior
        accepts[i]=T
      }else{
        accepts[i]=F

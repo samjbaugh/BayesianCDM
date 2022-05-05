@@ -64,6 +64,7 @@ convert_vector_to_params=function(vector,oldparams,varnames=NULL){
 #' Generate list of profiles
 #'
 #' @param Nprofile Nprofile
+#' @export
 gen_profile_list=function(Nprofile){
   profile_list=list()
   for(ii in 1:(2^Nskill)){

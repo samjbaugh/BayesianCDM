@@ -1,4 +1,0 @@
-intercepts=myvalues$lambda[value_key=='intercepts'];
-base_effects=matrix(myvalues$lambda[value_key=='base_effects'],Nq,Nskill);
-interactions=myvalues$lambda[value_key=='interactions'];
-q_info=q_info

@@ -79,6 +79,7 @@ simulate_cdm_data<-function(Nrespondents=20,
                      Nskill=Nskill,Nprofile=Nprofile),
              Q=Q,
              group_designmat=group_designmat,
+             group_assignments=group_assignments,
              respondent_designmat=respondent_designmat,
              Xs=Xs)
   return(list(Xdata=Xdata,true_profiles=true_profiles,true_params=true_params))
