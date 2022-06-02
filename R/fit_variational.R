@@ -36,23 +36,45 @@ cdm_ELBO_probit=function(vb_vec,Xdata,paraminfo,Q,prior_info=NULL,nsamples=20){
   vb_var=vb_vec[(nparams+1):(2*nparams)]
   q_info=gen_q_info(Q)
 
+  aux_means=generate_logits_discrete(convert_vector_to_params(vb_mean,paraminfo),q_info)
+  aux_vars=generate_logits_discrete(convert_vector_to_params(vb_var,paraminfo),q_info)
+
+  #split into two sets of auxillary variables:
+  aux_means_xi=aux_means[!(startsWith(names(vb_mean),'fbeta') |
+                            startsWith(names(vb_mean),'bbeta') |
+                            startsWith(names(vb_mean),'gamma'))]
+  aux_means_rho=aux_means[(startsWith(names(vb_mean),'fbeta') |
+                            startsWith(names(vb_mean),'bbeta') |
+                            startsWith(names(vb_mean),'gamma'))]
+  aux_vars_xi=aux_vars[!(startsWith(names(vb_mean),'fbeta') |
+                           startsWith(names(vb_mean),'bbeta') |
+                           startsWith(names(vb_mean),'gamma'))]
+  aux_vars_rho=aux_vars[(startsWith(names(vb_mean),'fbeta') |
+                           startsWith(names(vb_mean),'bbeta') |
+                           startsWith(names(vb_mean),'gamma'))]
+  #for-loop over A. Do not include auxillary mean terms, since they do not
+  #need to be estimated (should check if this is theoretically okay)
   Xs=Xdata$Xs
   person_lik=function(r){
-    lvals=array(NA,c(Nquestions,Nprofile,Nprofile,Ntime-1))
+    xi_vals=array(NA,c(Nquestions,Nprofile,Nprofile,Ntime-1))
+    pi_vals=array(NA,c(Nquestions,Nprofile,Nprofile,Ntime-1))
     for(t in 2:Ntime){
       for(p1 in 1:Nprofile){
         for(p2 in 1:Nprofile){
+          #add expected value of eta_{r,i}^2 and rho_{r,i}^2 to the lik term
+          #should there be an interaction term here?
           lvals[,p1,p2,t-1]=
-            log_trans_probs[[t-1]][[r]][p1,p2]+
-            dbinom(Xs[[t-1]][r,],1,response_probs[,p1],log=T)+
-            dbinom(Xs[[t]][r,],1,response_probs[,p2],log=T)
+            sign(Xs[[t]][r,])*(aux_means^2+aux_sds^2)+
+            sign(Xs[[t]][r,])*(aux_means^2+aux_sds^2)
+          #for transition probability,
+
         }
       }
     }
-    retval=log_sum_exp(apply(lvals,c(2,3),sum))
+    lik_term=log_sum_exp(apply(lvals,c(2,3),sum))
     return(sum(retval))
   }
-  retval=sum(map_dbl(1:Nrespondents,person_lik))
+  # retval=sum(map_dbl(1:Nrespondents,person_lik))
 
   lik_term=sum(logliks)
   variational_term=-sum((vb_mean^2+vb_var)/(vb_var)+log(vb_var))/2
@@ -90,6 +112,8 @@ variational_fit_probit=function(initial_params,Xdata,maxiter=100){
   ELBO_wrapper=function(vec){
     cdm_ELBO_logistic(vec,Xdata,initial_params,Q,priors,nsamples=5)
   }
+
+
   ELBO_wrapper(init_vb_vec)
   optout=optim(vb_vec,ELBO_wrapper,control=list(maxit=10000,trace=6))
   npar=length(init_vb_vec)/2
