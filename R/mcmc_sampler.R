@@ -6,7 +6,7 @@
 #' @return Returns dataframe of MCMC samples
 #' @export
 mcmc_sampler_main=function(Xdata,initparams,M){
-  init_paramvec=convert_params_to_vector(true_params)
+  init_paramvec=convert_params_to_vector(initparams)
 
   Nparams=length(init_paramvec)
   mcmc_samples=matrix(NA,M,Nparams)%>%

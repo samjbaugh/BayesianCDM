@@ -1,6 +1,14 @@
+#' Logit function
+#' @param params parameter object
+#' @param Xdata data (list form)
+#' @param g link function
+#' @param ret_prof_trans should profiles be returned
+#' @export
 gen_trans_probs=function(params,Xdata,g=logit,ret_prof_trans=F){
   forward_transitions=lapply(2:params$Ns$Ntime,function(t)
-    g(sapply(1:params$Ns$Nskill,function(s) apply(params$forward_betas[Xdata$group_assignments,,s,t-1]*Xdata$respondent_designmat,1,sum))))
+    g(sapply(1:params$Ns$Nskill,function(s)
+      apply(params$forward_betas[Xdata$group_assignments,,s,t-1]*
+              Xdata$respondent_designmat,1,sum))))
   backward_transitions=lapply(2:params$Ns$Ntime,function(t)
     g(sapply(1:params$Ns$Nskill,function(s) apply(params$backward_betas[Xdata$group_assignments,,s,t-1]*Xdata$respondent_designmat,1,sum))))
 

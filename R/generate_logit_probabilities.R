@@ -4,12 +4,12 @@ generate_logits_discrete<-function(params,q_info){
   Nprofile=params$Ns$Nprofile
   Nquestions=params$Ns$Nquestions
   value_key=params$value_key
+  Ninteraction=params$Ns$Ninteraction
 
   intercepts=params$theta[value_key=='intercepts']
   base_effects=matrix(params$theta[value_key=='base_effects'],Nquestions,Nskill)
   interactions=params$theta[value_key=='interactions']
 
-  Ninteraction=length(interactions)
 
   ret_logits=matrix(0,Nquestions,Nprofile)
   for(iquestion in 1:Nquestions){
@@ -23,10 +23,12 @@ generate_logits_discrete<-function(params,q_info){
             base_effects[iquestion,iskill];
         }
       }
-      for(i_interaction in 1:Ninteraction){
-        if(q_info$interaction_qids[i_interaction]==iquestion &
-           q_info$interaction_in_profile[i_interaction,iprofile]==1){
-          myprob=myprob + interactions[i_interaction];
+      if(Ninteraction>0){
+        for(i_interaction in 1:Ninteraction){
+          if(q_info$interaction_qids[i_interaction]==iquestion &
+             q_info$interaction_in_profile[i_interaction,iprofile]==1){
+            myprob=myprob + interactions[i_interaction];
+          }
         }
       }
       ret_logits[iquestion,iprofile]=myprob
