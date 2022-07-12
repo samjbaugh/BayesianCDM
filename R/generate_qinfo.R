@@ -36,15 +36,21 @@ gen_q_info<-function(Q){
       }
     }
   }
-  interaction_qids=sapply(interaction_list,function(x) x$q)
+  if(length(interaction_list)>0){
+    interaction_qids=sapply(interaction_list,function(x) x$q)
+  }else{
+    interaction_qids=c(0)
+  }
 
 
   Ninteraction=counter#length(interaction_list)
   interaction_in_profile=array(NA,c(Ninteraction,Nprofile))
   for(iprofile in 1:Nprofile){
-    for(i_interaction in 1:Ninteraction){
-      interaction_in_profile[i_interaction,iprofile]=
-        all(profile_list[[iprofile]][interaction_list[[i_interaction]]$interaction]==1)
+    if(Ninteraction>0){
+      for(i_interaction in 1:Ninteraction){
+        interaction_in_profile[i_interaction,iprofile]=
+          all(profile_list[[iprofile]][interaction_list[[i_interaction]]$interaction]==1)
+      }
     }
   }
   q_profiles=apply(Q,1,function(y)which(sapply(profile_list,function(x) all(x==y))))

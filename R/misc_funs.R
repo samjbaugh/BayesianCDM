@@ -27,7 +27,8 @@ convert_params_to_vector=function(params){
   bbeta_names=paste0('bbeta',c(params$beta_names))
 
   vector= c(params$theta, c(params$forward_betas),c(params$backward_betas),c(params$gamma))
-  varnames= c(params$theta_names,c(fbeta_names),c(bbeta_names),c(params$gamma_names))
+  varnames= c(params$theta_names,c(fbeta_names),c(bbeta_names),
+              c(params$gamma_names))
 
   names(vector)=varnames
   return(vector)

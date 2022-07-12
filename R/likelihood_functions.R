@@ -5,7 +5,7 @@
 #' @param q_info Result from applying gen_qinfo with Q matrix
 #' @return Returns likelihood value
 #' @export
-likelihood_master<-function(params,Xdata,q_info){
+likelihood_master<-function(params,Xdata,q_info,g=logit){
   response_probs=logit(generate_logits_discrete(params,q_info))
   log_trans_probs=gen_trans_probs(params,Xdata,ret_prof_trans=T)$profile
   Nprofile=params$Ns$Nprofile
@@ -20,7 +20,7 @@ likelihood_master<-function(params,Xdata,q_info){
     lvals=array(0,c(Nquestions,Nprofile,Nprofile,Ntime-1))
     #first time point (no transitions)
     for(p1 in 1:Nprofile){
-      lvals[,p1,p1,t-1]=
+      lvals[,p1,p1,1]=
         dbinom(Xs[[1]][r,],1,response_probs[,p1],log=T)
     }
     #further time points (include transition probabilities)

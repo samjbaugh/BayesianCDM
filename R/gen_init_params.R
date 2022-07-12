@@ -26,13 +26,16 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
   q_info=gen_q_info(Q)
 
   intercepts=rnorm(Nquestions,mean=-3,sd=.1)
+  Ninteraction=length(q_info$interaction_qids)*
+    (q_info$interaction_qids[1]!=0)
+  Ninteraction_unique=length(unique(q_info$interaction_qids))*
+    (q_info$interaction_qids[1]!=0)
   base_effects=matrix(NA,Nquestions,Nskill)
-  base_effects[-unique(q_info$interaction_qids),]=
-    rnorm(Nskill*(Nquestions-length(unique(q_info$interaction_qids))),mean=6,sd=.1)
+  base_effects[1:Nquestions,]=rnorm(Nskill*Nquestions,mean=6,sd=.1)
   base_effects[unique(q_info$interaction_qids),]=
-    rnorm(Nskill*length(unique(q_info$interaction_qids)),mean=3,sd=.1)
-  base_effects[q_info$q_profiles==8,]=rnorm(Nskill*sum(q_info$q_profiles==8),mean=2,sd=.1)
-  interactions=rnorm(length(q_info$interaction_qids),mean=0,sd=.1)
+    rnorm(Nskill*Ninteraction_unique,mean=3,sd=.1)
+
+  interactions=rnorm(Ninteraction,mean=0,sd=.1)
 
   gen_forward=function(s) {
     set.seed(123)
@@ -60,19 +63,23 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
 
   value_key=c(rep('intercepts',length(intercepts)),
               rep('base_effects',length(c(base_effects))),
-              rep('interactions',length(c(interactions))))
+              rep('interactions',Ninteraction))
 
   base_effect_tags=c(outer(1:Nskill,1:Nquestions,function(s,i) paste0('_s',s,'_i',i)))
   int_tags=q_info$interaction_list%>%map('interaction')%>%
     map_chr(function(x) paste0('(',x[1],',',x[2],')'))
 
   theta_names=c(paste0('theta0_i',1:length(intercepts)),
-                paste0('theta',base_effect_tags),
-                paste0('theta_',int_tags))
+                paste0('theta',base_effect_tags))
+  if(Ninteraction>0){
+    theta_names=c(theta_names,paste0('theta_',int_tags))
+  }
+
 
   init_vals=list(Ns=list(Nrespondents=Nrespondents,Ntime=Ntime,
                            Nquestions=Nquestions,Nrespcov=Nrespcov,
                            Ngroupcov=Ngroupcov,Ngroup=Ngroup,
+                           Ninteraction=Ninteraction,
                            Nskill=Nskill,Nprofile=Nprofile),
                  theta=c(intercepts,base_effects,interactions),
                  log_lambda=log(rep(1,Nprofile)/Nprofile),
