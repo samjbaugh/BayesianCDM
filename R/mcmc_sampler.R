@@ -18,7 +18,7 @@ mcmc_sampler_main=function(Xdata,initparams,M){
   #prior variance for u is a 3x3 matrix since we have two
   #individual level covariates+intercept
   Nu=initparams$Ns$Nrespcov+1
-  init_ucovmat=rWishart(1,Nu,diag(Nu))[,,1]
+  init_ucovmat=matrix(rWishart(1,Nu,diag(Nu))[,,1],Nu,Nu)
   prior_vars=list('theta'=1,
                     'gamma'=1,
                     'u'=init_ucovmat)
