@@ -106,8 +106,10 @@ gen_data_wrapper=function(Nrespondents=20,
                           Ngroupcov=2,
                           myseed=NULL){
   Nprofile=2^Nskill
-  group_assignments=map(1:Ngroup,function(i) rep(i,ceiling(Nrespondents/Ngroup)))%>%
-    {do.call(c,.)}%>%.[1:Nrespondents]
+  group_assignments=
+    map(1:Ngroup,function(i) rep(i,ceiling(Nrespondents/Ngroup)))%>%
+    {do.call(c,.)}%>%
+    .[1:Nrespondents]
   Q=gen_profile_list(Nprofile)%>%.[-1]%>%
     {do.call(rbind,lapply(.,function(x)
       do.call(rbind,lapply(1:ceiling(Nquestions/(Nprofile-1)),function(i) x))))%>%

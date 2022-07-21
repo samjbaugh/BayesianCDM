@@ -8,12 +8,12 @@ gen_u=function(params,Xdata){
   gammaw=matrix(NA,params$Ns$Ngroup,params$Ns$Nrespcov+1)
   for(v in 1:(params$Ns$Nrespcov+1)){
     for(g in 1:params$Ns$Ngroup){
-      gammaw[g,v]=params$gamma[v,]%*%Xdata$group_designmat[g,]
+      gammaw[g,v]=params$gamma[v,,drop=F]%*%Xdata$group_designmat[g,,drop=F]
     }
   }
   uforward=array(apply(params$forward_betas,c(3,4),function(x) x-gammaw),
                  c(Ngroup,Nrespcov+1,Nskill,Ntime-1))
-  ubackward=array(apply(params$forward_betas,c(3,4),function(x) x-gammaw),
+  ubackward=array(apply(params$backward_betas,c(3,4),function(x) x-gammaw),
                   c(Ngroup,Nrespcov+1,Nskill,Ntime-1))
   return(list(uforward=uforward,ubackward=ubackward))
 }

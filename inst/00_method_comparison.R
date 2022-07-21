@@ -12,8 +12,6 @@ Ngroupcov=2
 Nrespondents=10
 Nquestions=4
 
-
-
 time_list=list(mcmc=rep(NA,ntrials),
                vs=rep(NA,ntrials))
 
