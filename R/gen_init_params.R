@@ -52,10 +52,14 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
   }
   #first index is over time, second is over skills
 
-  #can recover vector from array(vec,c(Ngroup,Nrespcov+1,Nskill,Ntime-1))
-  forward_betas=simplify2array(lapply(1:(Ntime-1),function(t) simplify2array(lapply(1:Nskill,gen_forward))))
-  backward_betas=simplify2array(lapply(1:(Ntime-1),function(t) simplify2array(lapply(1:Nskill,gen_backward))))
-  beta_names=simplify2array(lapply(1:(Ntime-1),function(t) simplify2array(lapply(1:Nskill,function(s) gen_names(t,s)))))
+
+  tmpfun=function(x){
+    array(unlist(x),c(Nskill,Nrespcov+1,Ngroup))
+  }
+  forward_betas=simplify2array(lapply(1:(Ntime-1),
+                                      function(t) tmpfun(lapply(1:Nskill,gen_forward))))
+  backward_betas=simplify2array(lapply(1:(Ntime-1),function(t) tmpfun(lapply(1:Nskill,gen_backward))))
+  beta_names=simplify2array(lapply(1:(Ntime-1),function(t) tmpfun(lapply(1:Nskill,function(s) gen_names(t,s)))))
 
   #can recover vector from array(vec,c(Nrespcov+1,Ngroupcov+1))
   gamma_mat=matrix(rnorm((Nrespcov+1)*(Ngroupcov+1)),Nrespcov+1,Ngroupcov+1)
