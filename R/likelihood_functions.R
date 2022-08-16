@@ -7,7 +7,7 @@
 #' @export
 likelihood_master<-function(params,Xdata,q_info,g=logit){
   response_probs=logit(generate_logits_discrete(params,q_info))
-  trans_probs=gen_trans_probs(params,Xdata,ret_prof_trans=T)$profile   ### was "log_trans_probs" but were not log
+  trans_probs=gen_trans_probs(params,Xdata,ret_prof_trans=T)$profile
   Nprofile=params$Ns$Nprofile
   Ntime=params$Ns$Ntime
   Nrespondents=params$Ns$Nrespondents
