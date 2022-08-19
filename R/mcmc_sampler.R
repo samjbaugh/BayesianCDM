@@ -7,6 +7,10 @@
 #' @return Returns dataframe of MCMC samples
 #' @export
 mcmc_sampler_main=function(Xdata,initparams,M, onelvl = F){
+  if(Ngroup==1){
+    onelvl = T
+  }
+
   init_paramvec=convert_params_to_vector(initparams)
 
   Nparams=length(init_paramvec)
@@ -16,14 +20,9 @@ mcmc_sampler_main=function(Xdata,initparams,M, onelvl = F){
   mcmc_samples[1,]=init_paramvec
   q_info=gen_q_info(Xdata$Q)
 
-  #prior variance for u is a 3x3 matrix since we have two
-  #individual level covariates+intercept
-  Nu=initparams$Ns$Nrespcov+1
-  init_ucovmat=matrix(rWishart(1,Nu,diag(Nu))[,,1],Nu,Nu)
   prior_vars=list('theta'=1,
                   'gamma'=1,
-                  'beta'=1,
-                  'u'=init_ucovmat)
+                  'beta'=1)
 
   if(onelvl == T){
     paraminfo = initparams[c('Ns','log_lambda','value_key','beta_names')]
@@ -37,7 +36,7 @@ mcmc_sampler_main=function(Xdata,initparams,M, onelvl = F){
   prior_wrapper=function(vec){
     theta_prior=dnorm(vec[startsWith(names(vec),'theta')],mean=0,sd=prior_vars$theta,log=T)
     gamma_prior=dnorm(vec[startsWith(names(vec),'gamma')],mean=0,sd=prior_vars$gamma,log=T)
-    params=convert_vector_to_params(vec,initparams)
+    params=convert_vector_to_params(vec,paraminfo)
     beta_prior=dnorm(params$backward_betas,mean=0,sd=prior_vars$beta,log=T)+
       dnorm(params$forward_betas,mean=0,sd=prior_vars$beta,log=T)
     return(sum(theta_prior)+sum(gamma_prior)+sum(beta_prior))

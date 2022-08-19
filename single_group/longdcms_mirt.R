@@ -186,17 +186,17 @@ g        = logit
 system.time({
   mcmc_results=mcmc_sampler_main(Xdata      = Xdata,
                                  initparams = initparams,
-                                 M          = 2000,
+                                 M          = 10000,
                                  onelvl     = T)
 })
 # user   system  elapsed
 # 3664.009  133.855 4010.336
-# saveRDS(mcmc_results, "~/Desktop/CDM/BayesianCDM/inst/mcmc_results.Rds")
+# saveRDS(mcmc_results, "~/Desktop/CDM/BayesianCDM/single_group/mcmc_results.Rds")
 # mcmc_results = readRDS("~/Desktop/CDM/BayesianCDM/inst/mcmc_results.Rds")
-plot(colMeans(mcmc_results[1001:2000,])[1:21], ylim = c(-9,8))
-points(colMeans(mcmc_results[1001:2000,])[22:42], pch = 19)
+plot(colMeans(mcmc_results[5001:10000,])[1:21], ylim = c(-9,8))
+points(colMeans(mcmc_results[5001:10000,])[22:42], pch = 19)
 
-logit(colMeans(mcmc_results[1001:2000,])[43:50])
+logit(colMeans(mcmc_results[5001:10000,])[43:50])
 
 
 ### Variational Logit
@@ -207,9 +207,9 @@ system.time({var_results=variational_fit(Xdata          = Xdata,
                                          maxiter        = 5000)
 })
 # user    system   elapsed
-# 9569.538   348.970 25636.511
-saveRDS(var_results, "~/Desktop/CDM/BayesianCDM/inst/var_results2000.Rds")
-# var_results = readRDS("~/Desktop/CDM/BayesianCDM/inst/var_results.Rds")
+# 45444.764  1784.031 92946.523
+saveRDS(var_results, "~/Desktop/CDM/BayesianCDM/single_group/var_results.Rds")
+# var_results = readRDS("~/Desktop/CDM/BayesianCDM/single_group/var_results.Rds")
 plot(var_results$vb_mean[1:21], ylim = c(-3.1,6.2))
 points(var_results$vb_mean[22:42], pch = 19)
 

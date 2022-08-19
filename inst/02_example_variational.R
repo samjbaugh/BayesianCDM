@@ -38,7 +38,8 @@ Xdata=simulate_cdm_data(Nrespondents=Nrespondents,
                         Q=Q,
                         respondent_designmat=respondent_designmat,
                         group_designmat=group_designmat)$Xdata
-initial_params=gen_initial_values_longitudinal(Nrespondents,Q=Q,
+initial_params=gen_initial_values_longitudinal(Nrespondents,
+                                               Q=Q,
                                                Nrespcov=Nrespcov,
                                                Ngroupcov=Ngroupcov,
                                                Ntime=Ntime)

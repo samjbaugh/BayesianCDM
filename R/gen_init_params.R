@@ -16,10 +16,9 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
   if(!is.null(seed)){
     set.seed(seed)
   }
-  # if(Ngroup>2){
-  #   print("For Ngroup>2 not implemented")
-  #   return(NA)
-  # }
+  if(Ngroup==1){
+    onelvl = T
+  }
   Nskill=dim(Q)[2]
   Nquestions=dim(Q)[1]
   Nprofile=2^Nskill
@@ -33,15 +32,16 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
     (q_info$interaction_qids[1]!=0)
   base_effects=matrix(NA,Nquestions,Nskill)
   base_effects[1:Nquestions,]=rnorm(Nskill*Nquestions,mean=6,sd=.1)
-  base_effects = base_effects*Q    ################################################# ADDITION
   base_effects[unique(q_info$interaction_qids),]=
     rnorm(Nskill*Ninteraction_unique,mean=3,sd=.1)
+  base_effects = base_effects*Q    ################################################# ADDITION
+
 
   interactions=rnorm(Ninteraction,mean=0,sd=.1)
 
   gen_forward=function(s) {
     set.seed(123)
-    forward_beta=array(rnorm(Ngroup*(Nrespcov+1),sd=.5),c(Ngroup,Nrespcov+1))
+    forward_beta=array(rnorm(Ngroup*(Nrespcov+1),mean=2,sd=.5),c(Ngroup,Nrespcov+1))
     #simulate different group base effects
     forward_beta[,1]=seq(-2,2,length=Ngroup)
     return(forward_beta)
@@ -81,7 +81,7 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
     theta_names=c(theta_names,paste0('theta_',int_tags))
   }
 
-  params_keep = c(intercepts != 0, base_effects != 0) ###### nonzero params kept
+  params_keep = c(intercepts != 0, base_effects != 0, interactions != 0) ###### nonzero params kept
   if(onelvl==T){gamma_names = NULL}
 
 

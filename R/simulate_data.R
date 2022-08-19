@@ -106,20 +106,23 @@ gen_data_wrapper=function(Nrespondents=20,
                           Ngroupcov=2,
                           myseed=NULL){
   Nprofile=2^Nskill
-  group_assignments=map(1:Ngroup,function(i) rep(i,ceiling(Nrespondents/Ngroup)))%>%
-    {do.call(c,.)}%>%.[1:Nrespondents]
+  group_assignments=map(1:Ngroup,function(i)
+      rep(i,ceiling(Nrespondents/Ngroup)))%>%{do.call(c,.)}%>%.[1:Nrespondents]
   Q=gen_profile_list(Nprofile)%>%.[-1]%>%
     {do.call(rbind,lapply(.,function(x)
       do.call(rbind,lapply(1:ceiling(Nquestions/(Nprofile-1)),function(i) x))))%>%
         .[1:Nquestions,]}
-  respondent_designmat=cbind(rep(1,Nrespondents),
-                             matrix(rnorm(Nrespondents*Ngroup,sd=.2),
-                                    Nrespondents,Nrespcov))
-  group_designmat=cbind(rep(1,Ngroup),
-                        matrix(rnorm(Ngroup*Ngroupcov,sd=.2),
-                               Ngroup,Ngroupcov))
+  # respondent_designmat=cbind(rep(1,Nrespondents),
+  #                            matrix(rnorm(Nrespondents*Ngroup,sd=.2),
+  #                                   Nrespondents,Nrespcov))
+  respondent_designmat = cbind(rep(1,Nrespondents), rep(1,Nrespondents))              ######### no cov
+  # group_designmat=cbind(rep(1,Ngroup),
+  #                       matrix(rnorm(Ngroup*Ngroupcov,sd=.2),
+  #                              Ngroup,Ngroupcov))
+  group_designmat = cbind(rep(1,Ngroup))              ######### no cov
+
   true_params=gen_initial_values_longitudinal(Nrespondents,Q,
-                                              Ngroup=2,seed=myseed,
+                                              Ngroup=Ngroup,seed=myseed,
                                               Nrespcov=Nrespcov,
                                               Ngroupcov=Ngroupcov)
 
