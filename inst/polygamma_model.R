@@ -20,33 +20,42 @@ require(tidyverse)
   Q[c(1,13:14,17), 1] = Q[c(2:3,9:12), 2] =
     Q[c(4:8), 3] = Q[c(15:16, 18:21), 4] = 1
   qinfo = q_info = gen_q_info(Q)
+
+  Nquestions=dim(Q)[1]
+  Nprofile=2^Nskill
+
+  Y=list(as.matrix(complete.dat[,1:21]),
+         as.matrix(complete.dat[,22:42]))
+
+  Ns=list(Nrespondents=Nrespondents,Ntime=Ntime,
+          Nquestions=Nquestions,Nrespcov=Nrespcov,
+          Ngroupcov=Ngroupcov,Ngroup=Ngroup,
+          Nskill=Nskill,Nprofile=Nprofile)
 }
 
+#initialize
+alpha=gen_alpha(Nprofile,Nskill)
+A=gen_A(alpha)
 
-beta=rnorm(Nquestions*2,sd=.1)
-Ns=list(Nrespondents=Nrespondents,Ntime=Ntime,
-        Nquestions=Nquestions,Nrespcov=Nrespcov,
-        Ngroupcov=Ngroupcov,Ngroup=Ngroup,
-        Nskill=Nskill,Nprofile=Nprofile)
-value_key=c(rep("intercepts",Nquestions),
-            rep("base_effects",Nquestions))
-myparams=list(Ns=Ns,
-              theta=beta,
-              value_key=value_key)
+Delta=Q_to_delta(Q)
+beta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*
+  Delta
+beta_mat[,1]=rnorm(Nquestions,sd=.25)
+beta_vec=beta_mat[Delta==1]
 
-theta=beta_to_theta(beta)
-X=list(as.matrix(complete.dat[,1:21]),
-       as.matrix(complete.dat[,22:42]))
-
-Nskill=dim(Q)[2]
-Nprofile=2^Nskill
-ilogit=function(x) -log(1/x-1)
+psi=beta_mat%*%t(A)
+theta=logit(psi)
+sigma_jp=matrix(1,Nquestions,Nprofile)
+#Enforce positivity in all but intercept, as is done in the paper
+Ljp=matrix(0,Nquestions,Nprofile)
+Ljp[,1]=-Inf
+require(truncnorm)
 
 myt=system.time({
   M=1000
 
-  beta_samples=matrix(NA,length(init_beta),M)
-  beta_samples[,1]=c(beta)
+  beta_samples=matrix(NA,length(beta_vec),M)
+  beta_samples[,1]=c(beta_vec)
 
   prof_samples=list(matrix(NA,Nrespondents,M),
                     matrix(NA,Nrespondents,M))
@@ -57,44 +66,30 @@ myt=system.time({
     for(t in 1:Ntime){
       #sample profile
       nci=gen_nci(prof_samples[[t]][,m-1])
-      profs_t=sapply(1:Nrespondents,function(r) sample_profile(r,t,theta,nci))
-      prof_samples[[t]][,m]=profs_t
+      prof_sample=sapply(1:Nrespondents,function(r) sample_profile(r,t,theta,nci))
+      prof_samples[[t]][,m]=prof_sample
 
       #sample augmented data
-      psi=ilogit(theta)
-      nc=as.numeric(table(profs_t))
+      nc=as.numeric(table(prof_sample))
       ystar=sample_ystar(psi,nc)
-      matrix(NA,Nquestions,Nprofile)
 
       #sample beta
       njc=gen_njc(prof_samples[[t]][,m],X[[t]])
       kappa=sweep(njc,2,nc/2,'-') #t(apply(nmat,1,function(x) x-sum(x)/2))
       z=kappa/ystar
 
-      A=model.matrix(~factor(profs_t)-1)
+      vjp=get_vjp(ystar,A,sigma_jp)
+      mjp=get_mjp(vjp,z,beta_mat)
 
-      beta0=beta[value_key=='intercepts']
-      beta1=beta[value_key=='base_effects']
-      sigmaj0=1
-      sigmaj1=1
+      beta_mat=matrix(rtruncnorm(length(mjp),mean=c(mjp),sd=c(vjp),a=c(Ljp)),
+                      dim(beta_mat)[1],dim(beta_mat)[2])*Delta
 
-      #p=0
-      ztilde0=z[,1]-beta1
-      ApT_omegaj0=ystar[,1] #sapply(1:Nquestions,function(i) ystar[i,1])
-      vj0=1/(ApT_omegaj0+1/sigmaj0^2)
-      mj0=vj0^2 * c(ApT_omegaj0*ztilde0)
 
-      #p=1
-      tmp=apply(Q==1,1,which)+1
-      ztilde1=sapply(1:Nquestions,function(i) z[i,tmp[i]])-beta0
-      ApT_omegaj1=sapply(1:Nquestions,function(i) ystar[i,tmp[i]])
-      vj1=1/(ApT_omegaj1+1/sigmaj1^2)
-      mj1=vj1^2 * c(ApT_omegaj1*ztilde1)
+      psi=beta_mat%*%t(A)
+      theta=logit(psi)
 
-      beta=c(rnorm(Nquestions,mj0,vj0),
-                rnorm(Nquestions,mj1,vj1))
-      theta=beta_to_theta(beta)
-      beta_samples[,m]=c(beta)
+      beta_vec=beta_mat[Delta==1]
+      beta_samples[,1]=c(beta_vec)
     }
     print(m)
   }

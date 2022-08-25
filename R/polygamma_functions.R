@@ -1,4 +1,28 @@
 
+gen_alpha=function(Nprofile,Nskill){
+  alpha=matrix(NA,Nprofile,Nskill)
+  for(ii in 1:Nprofile){
+    tmp=rep(NA,Nskill)
+    for(jj in 1:Nskill){
+      tmp[Nskill-jj+1]=((ii-1)%/%(2^(jj-1)))%%2
+    }
+    alpha[ii,]=rev(tmp)
+  }
+  alpha
+}
+
+Q_to_delta=function(Q,maxiter='not yet'){
+  Q=data.frame(Q)
+  formula=paste0('~', paste0(names(Q),collapse='*'))
+  as.matrix(model.matrix(data=Q,as.formula(formula)))
+}
+
+gen_A=function(alpha){
+  alpha=data.frame(alpha)
+  formula=paste0('~', paste0(names(alpha),collapse='*'))
+  model.matrix(data=alpha,as.formula(formula))
+}
+
 gen_njc=function(profiles,y){
   njc=matrix(NA,Nquestions,Nprofile)
   for(j in 1:Nquestions){
@@ -41,10 +65,30 @@ random_profiles=function(){
   return(sample(Nprofile,Nrespondents,rep=T))
 }
 
-beta_to_theta=function(x){
-  logit(generate_logits_discrete(list(Ns=initparams$Ns,
-                                      theta=x,
-                                      value_key=initparams$value_key),
-                                 q_info))
+
+get_vjp=function(ystar,A,sigma_jp){
+  vjp=matrix(NA,Nquestions,Nprofile)
+  for(j in 1:Nquestions){
+    for(p in 1:Nprofile){
+      omegaj=diag(ystar[j,])
+      vjp[j,p]=sqrt(1/(t(A[,p])%*%(ystar[j,]*A[,p])+1/(sigma_jp[j,p]^2)))
+    }
+  }
+  vjp
 }
+
+get_mjp=function(vjp,z,beta_mat){
+  mjp=matrix(NA,Nquestions,Nprofile)
+  for(j in 1:Nquestions){
+    for(p in 1:Nprofile){
+      omegaj=diag(ystar[j,])
+      ztildej=z[j,]-A[,-p]%*%beta_mat[j,-p]
+      mjp[j,p]=vjp[j,p]^2*t(A[,p])%*%(ystar[j,]*ztildej)
+    }
+  }
+  mjp
+}
+
+
+
 
