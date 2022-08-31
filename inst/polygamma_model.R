@@ -1,7 +1,7 @@
 require(tidyverse)
 
 {
-  dat = read.table("single_group/prepost1.txt")[,-1]
+  dat = read.table("prepost1.txt")[,-1]
   colnames(dat) = c(paste("Pre",1:21),paste("Post",1:21)) #gives items names for mirt
   dat[dat == 99] = NA #replace 99 with na
 
@@ -9,6 +9,7 @@ require(tidyverse)
   complete.dat = dat[complete.cases(dat),]
 
   complete.dat.mat = as.matrix(complete.dat)
+  X            = list(pre = complete.dat.mat[,1:21], post = complete.dat.mat[,22:42])
   Ntime        = 2
   Ngroup       = 1
   Nrespondents = nrow(complete.dat.mat)
@@ -38,13 +39,12 @@ alpha=gen_alpha(Nprofile,Nskill)
 A=gen_A(alpha)
 
 Delta=Q_to_delta(Q)
-beta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*
-  Delta
+beta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*Delta
 beta_mat[,1]=rnorm(Nquestions,sd=.25)
 beta_vec=beta_mat[Delta==1]
 
 psi=beta_mat%*%t(A)
-theta=logit(psi)
+theta=logistic(psi)
 sigma_jp=matrix(1,Nquestions,Nprofile)
 #Enforce positivity in all but intercept, as is done in the paper
 Ljp=matrix(0,Nquestions,Nprofile)
@@ -52,7 +52,7 @@ Ljp[,1]=-Inf
 require(truncnorm)
 
 myt=system.time({
-  M=1000
+  M=3000
 
   beta_samples=matrix(NA,length(beta_vec),M)
   beta_samples[,1]=c(beta_vec)
@@ -70,7 +70,7 @@ myt=system.time({
       prof_samples[[t]][,m]=prof_sample
 
       #sample augmented data
-      nc=as.numeric(table(prof_sample))
+      nc = as.numeric(sapply(1:Nprofile, function(p) sum(prof_sample==p)))
       ystar=sample_ystar(psi,nc)
 
       #sample beta
@@ -86,7 +86,7 @@ myt=system.time({
 
 
       psi=beta_mat%*%t(A)
-      theta=logit(psi)
+      theta=logistic(psi)
 
       beta_vec=beta_mat[Delta==1]
       beta_samples[,1]=c(beta_vec)
@@ -98,9 +98,14 @@ myt=system.time({
 profmat1=prof_samples[[1]][,1:(m-1)]
 profmat2=prof_samples[[2]][,1:(m-1)]
 
+
+### empirical transition probabilities
+
 forward_transitions=rep(NA,Nskill)
+backward_transitions=rep(NA,Nskill)
+
 for(s in 1:Nskill){
-  profiles=which(q_info$skill_in_profile[s,])
+  profiles=q_info$which_skill_profile[,s]
   t1_havent=which(!(profmat1 %in% profiles))
   t1_have=which((profmat1 %in% profiles))
   forward_transitions[s]=mean(profmat2[t1_havent]%in%profiles)
@@ -109,3 +114,38 @@ for(s in 1:Nskill){
 
 forward_transitions
 backward_transitions
+
+
+### forward and backward transition matrix
+betaf_mat=abs(matrix(rnorm(Nrespondents*(Nrespcov+1),sd=.25),Nrespondents,Nrespcov+1))
+betab_mat=abs(matrix(rnorm(Nrespondents*(Nrespcov+1),sd=.25),Nrespondents,Nrespcov+1))
+respondent_designmat = matrix(1,Nrespondents,1)
+psif = t(betaf_mat) %*% respondent_designmat
+psib = t(betab_mat) %*% respondent_designmat
+
+transf = trans_mat(m-1)[[1]]
+transb = trans_mat(m-1)[[2]]
+
+nc_f = as.numeric(sapply(1:Nprofile, function(p) sum(transf==p)))
+ystar=sample_ystar(psi,nc)
+
+
+thetaf = logistic(psif)
+thetab = logistic(psib)
+
+
+gammaf =
+gammab =
+
+
+
+# 4-class transition matrix
+multi_trans = trans_mat(m-1)[[3]]
+beta_mt = matrix(c(0.1, 0.3, 0.4, 0.2), byrow = T)
+design_mat = matrix(c(rep(1,Nrespondents),
+                    rep(sample(c(0,1), Nrespondents, replace = T), 4)), ncol = 5)
+psi = t(multi_trans) %*% beta_mt
+
+
+
+# vjp turning into matrix instead of vector for multinomial
