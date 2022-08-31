@@ -89,6 +89,17 @@ get_mjp=function(vjp,z,beta_mat){
   mjp
 }
 
+get_V_multinom=function(ystar,A,sigma_jp){
+  vjp=matrix(NA,Nquestions,Nprofile)
+  for(j in 1:Nquestions){
+    for(p in 1:Nprofile){
+      omegaj=diag(ystar[j,])
+      vjp[j,p]=sqrt(1/(t(A[,p])%*%(ystar[j,]*A[,p])+1/(sigma_jp[j,p]^2)))
+    }
+  }
+  vjp
+}
+
 
 
 
