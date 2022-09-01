@@ -22,6 +22,10 @@ gen_q_info<-function(Q){
   skill_in_profile=sapply(1:Nprofile, function(i)
     sapply(1:Nskill, function(j) profile_list[[i]][j]==1))
 
+  which_skill_profile=sapply(1:Nskill, function(s)
+    which(q_info$skill_in_profile[s,]))
+
+
   #list of interaction names for each question
   interaction_list=list()
   counter=0
@@ -60,6 +64,7 @@ gen_q_info<-function(Q){
               interaction_qids=interaction_qids,
               interaction_list=interaction_list,
               skill_in_profile=skill_in_profile,
+              which_skill_profile=which_skill_profile,
               profile_list=profile_list,
               q_profiles=q_profiles))
 }
