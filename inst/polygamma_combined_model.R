@@ -1,6 +1,11 @@
 require(tidyverse)
+require(dplyr)
+require(purrr)
 
 {
+  setwd("~/Documents/GitHub/BayesianCDM/")
+  devtools::load_all()
+  setwd("~/Documents/GitHub/BayesianCDM/single_group")
   dat = read.table("prepost1.txt")[,-1]
   colnames(dat) = c(paste("Pre",1:21),paste("Post",1:21)) #gives items names for mirt
   dat[dat == 99] = NA #replace 99 with na
@@ -32,6 +37,15 @@ require(tidyverse)
           Nquestions=Nquestions,Nrespcov=Nrespcov,
           Ngroupcov=Ngroupcov,Ngroup=Ngroup,
           Nskill=Nskill,Nprofile=Nprofile)
+
+  ###### Transition model
+  desmat=list(model.matrix((1:Nrespondents)~1),
+              model.matrix((1:Nrespondents)~1),
+              model.matrix((1:Nrespondents)~1),
+              model.matrix((1:Nrespondents)~1))
+  desmat=lapply(1:Nskill, function(s) desmat)
+  tunits=c("4", "3", "2", "1")
+  J=length(tunits)
 }
 
 #initialize
@@ -52,8 +66,8 @@ Ljp[,1]=-Inf
 require(truncnorm)
 
 myt=system.time({
-  M=1000
-
+  M=50
+  Nsim=10
   beta_samples=matrix(NA,length(beta_vec),M)
   beta_samples[,1]=c(beta_vec)
 
@@ -63,10 +77,17 @@ myt=system.time({
   prof_samples[[2]][,1]=random_profiles()
 
   for(m in 2:M){
+
+    #compute transition probabilities
+    trans_params=lapply(1:Nskill, function(s) multinom_sim(Nsim,m,Nrespondents,s=s,
+                                                          tunits=tunits,desmat[[s]]))
+    prof_probs=multinom_transition_wrapper(trans_params)
+
     for(t in 1:Ntime){
+
       #sample profile
       nci=gen_nci(prof_samples[[t]][,m-1])
-      prof_sample=sapply(1:Nrespondents,function(r) sample_profile(r,t,theta,nci))
+      prof_sample=sapply(1:Nrespondents,function(r) sample_profile(r,t,theta,prof_probs))
       prof_samples[[t]][,m]=prof_sample
 
       #sample augmented data
@@ -135,15 +156,15 @@ thetab = logistic(psib)
 
 
 gammaf =
-gammab =
+  gammab =
 
 
 
-# 4-class transition matrix
-multi_trans = trans_mat(m-1)[[3]]
+  # 4-class transition matrix
+  multi_trans = trans_mat(m-1)[[3]]
 beta_mt = matrix(c(0.1, 0.3, 0.4, 0.2), byrow = T)
 design_mat = matrix(c(rep(1,Nrespondents),
-                    rep(sample(c(0,1), Nrespondents, replace = T), 4)), ncol = 5)
+                      rep(sample(c(0,1), Nrespondents, replace = T), 4)), ncol = 5)
 psi = t(multi_trans) %*% beta_mt
 
 
