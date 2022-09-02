@@ -36,6 +36,25 @@ gen_nci=function(profiles){
   nci
 }
 
+sample_profile1=function(r,t,theta,nmat){
+  logp=sapply(1:Nprofile,function(p)
+    sum(dbinom(X[[t]][r,],1,theta[,p],log=T)))
+  probs=(nmat[,r]+1)*exp(logp-max(logp))/
+    sum((nmat[,r]+1)*exp(logp-max(logp)))
+  return(sample(Nprofile,1,prob=probs))
+}
+
+sample_profile2=function(r,t,theta,prior){
+  logp=sapply(1:Nprofile,function(p)
+    sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))
+  # prior = nmat[,r]+1 from original paper,      nmat = nci
+  # change to prof_probs here using transition model
+  # probs=(nmat[,r]+1)*exp(logp-max(logp))/
+  #   sum(nmat[,r]+1)*exp(logp-max(logp)))
+  probs=(exp(logp-max(logp))/exp(logp-max(logp))) * prior[[t]][r,]
+  return(sample(Nprofile,1,prob=probs))
+}
+
 sample_profile=function(r,t,theta,prior){
   logp=sapply(1:Nprofile,function(p)
     sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))

@@ -66,7 +66,7 @@ myt=system.time({
     for(t in 1:Ntime){
       #sample profile
       nci=gen_nci(prof_samples[[t]][,m-1])
-      prof_sample=sapply(1:Nrespondents,function(r) sample_profile(r,t,theta,nci))
+      prof_sample=sapply(1:Nrespondents,function(r) sample_profile1(r,t,theta,nci))
       prof_samples[[t]][,m]=prof_sample
 
       #sample augmented data
