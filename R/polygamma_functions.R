@@ -55,16 +55,13 @@ sample_profile2=function(r,t,theta,prior){
   return(sample(Nprofile,1,prob=probs))
 }
 
-sample_profile=function(r,t,theta,prior){
-  logp=sapply(1:Nprofile,function(p)
-    sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))
-  # prior = nmat[,r]+1 from original paper,      nmat = nci
-  # change to prof_probs here using transition model
-  # probs=(nmat[,r]+1)*exp(logp-max(logp))/
-  #   sum(nmat[,r]+1)*exp(logp-max(logp)))
-  probs=(exp(logp-max(logp))/exp(logp-max(logp))) * prior[[t]][r,]
-  return(sample(Nprofile,1,prob=probs))
-}
+# sample_profile=function(r,t,theta,nmat){
+#   logp=sapply(1:Nprofile,function(p)
+#     sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))
+#   probs=(nmat[,r]+1)*exp(logp-max(logp))/
+#     sum(nmat[,r]+1)*exp(logp-max(logp)))
+#   return(sample(Nprofile,1,prob=probs))
+# }
 
 sample_ystar=function(psi,nc){
   ystar=matrix(NA,Nquestions,Nprofile)
@@ -131,9 +128,9 @@ get_V_multinom=function(ystar,A,sigma_jp){
 
 
 trans_mat = function(m) {
-  time1 = sapply(1:Nskill, function(s) prof_samples[[1]][,m] %in%
+  time1 = sapply(1:Nskill, function(s) prof_samples[[1]][,m-1] %in%
                    q_info$which_skill_profile[,s])
-  time2 = sapply(1:Nskill, function(s) prof_samples[[2]][,m] %in%
+  time2 = sapply(1:Nskill, function(s) prof_samples[[2]][,m-1] %in%
                    q_info$which_skill_profile[,s])
   forward_mat = (time1 == 0) & (time2 == 1)
   backward_mat = (time1 == 1) & (time2 == 0)
@@ -143,7 +140,7 @@ trans_mat = function(m) {
     rowSums(matrix(c((time1[,s]==0 & time2[,s]==0)*1,
                      (time1[,s]==1 & time2[,s]==1)*2,
                      (time1[,s]==1 & time2[,s]==0)*3,
-                     (time1[,s]==0 & time2[,s]==1)*4), ncol = Nskill)))
+                     (time1[,s]==0 & time2[,s]==1)*4), ncol = J)))
   return(list(forward_mat, backward_mat, mult_trans))
 }
 

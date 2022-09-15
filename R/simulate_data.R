@@ -53,20 +53,17 @@ simulate_cdm_data<-function(Nrespondents=20,
   }
 
   #generate transition matrices
-  transition_probabilities=gen_trans_probs(true_params,tmpdata,
-                                           ret_prof_trans = T)
+  transition_probabilities=gen_trans_probs_mult(true_params,tmpdata,
+                                                ret_prof_trans = T)
   if(is.null(true_profiles)){
-    #give an even distribution for profiles at time 1
-    true_profiles=list(
-      c(sapply(1:Nprofile,function(x) rep(x,ceiling(Nrespondents/Nprofile))))[1:Nrespondents]
-    )
-    #Use transition probability matrix at future times:
-    trans_probs=gen_trans_probs(true_params,tmpdata,ret_prof_trans=T)$profile
-    if(Ntime>1){
-      for(t in 2:Ntime){
-        true_profiles[[t]]=map_int(1:Nrespondents,function(r) sample(Nprofile,1,prob=trans_probs[[t-1]][[r]][true_profiles[[t-1]][r],]))
-      }
+    t1_profiles = c()
+    t2_profiles = c()
+    for (r in 1:Nrespondents){
+      prof_sample = sample(1:Nprofile^2, 1, prob = c(transition_probabilities$profile[[r]]))
+      t1_profiles = c(t1_profiles, ((prof_sample-1) %% 8) + 1)  # row
+      t2_profiles = c(t2_profiles, ((prof_sample-1) %/% 8) + 1) # col
     }
+    true_profiles = list(t1_profiles, t2_profiles)
   }
 
   q_info=gen_q_info(Q)
@@ -104,7 +101,8 @@ gen_data_wrapper=function(Nrespondents=20,
                           Ngroup=1,
                           Nrespcov=2,
                           Ngroupcov=2,
-                          myseed=NULL){
+                          myseed=NULL,
+                          multinomial = F){
   Nprofile=2^Nskill
   group_assignments=map(1:Ngroup,function(i)
       rep(i,ceiling(Nrespondents/Ngroup)))%>%{do.call(c,.)}%>%.[1:Nrespondents]
@@ -125,6 +123,19 @@ gen_data_wrapper=function(Nrespondents=20,
                                               Ngroup=Ngroup,seed=myseed,
                                               Nrespcov=Nrespcov,
                                               Ngroupcov=Ngroupcov)
+
+  if (multinomial == TRUE)
+  {
+    true_beta = lapply(1:Nskill, function(s) map(desmat[[1]][1:(J-1)],
+                       ~rnorm(dim(.)[2]))%>%set_names(paste0('beta',tunits[1:(J-1)])))
+    true_logits = lapply(1:Nskill, function(s) bind_cols(map2(desmat[[1]][1:(J-1)],
+                         true_beta[[s]],~as.numeric(.x%*%.y)))%>%cbind(rep(0,Nrespondents)))
+    true_probs = lapply(1:Nskill, function(s) t(apply(true_logits[[s]],1,function(x)
+                        exp(x-max(x))/sum(exp(x-max(x))))))
+    true_params$true_beta = true_beta
+    true_params$true_logits = true_logits
+    true_params$true_probs = true_probs
+  }
 
   simulate_cdm_data(Nrespondents=Nrespondents,
                     Nquestions=Nquestions,

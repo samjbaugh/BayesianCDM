@@ -43,7 +43,7 @@ gen_initial_values_longitudinal<-function(Nrespondents,Q,Ntime=2,
     set.seed(123)
     forward_beta=array(rnorm(Ngroup*(Nrespcov+1),mean=2,sd=.5),c(Ngroup,Nrespcov+1))
     #simulate different group base effects
-    forward_beta[,1]=seq(-2,2,length=Ngroup)
+    # forward_beta[,1]=seq(-2,2,length=Ngroup)
     return(forward_beta)
   }
   gen_backward=function(s){

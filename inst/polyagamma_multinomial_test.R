@@ -86,7 +86,7 @@ multinom_sim=function(M,Nrespondents,tunits,desmat,id=''){
               q95prob=quantile(prob,.95))%>%
     right_join(true_beta_df,by='name')%>%
     right_join(emp_prob,by='name')%>%
-    mutate(id=id)
+    mutate(id="trial1")
   return(postsumm)
 }
 
@@ -96,8 +96,8 @@ desmat=list(model.matrix((1:Nrespondents)~1),
 J=3
 simresults=
   map_dfr(paste0('trial',1:5),~multinom_sim(M=10,Nrespondents=100,
-                                             tunits=c('1','2','3')[1:J], #'11','00'),
-                                             desmat[1:(J-1)],id=.))
+                                            tunits=c('1','2','3','4')[1:J], #'11','00'),
+                                            desmat[1:(J-1)],id=.))
 
 simresults%>%
   ggplot()+
@@ -106,5 +106,3 @@ simresults%>%
   geom_point(aes(x=id,y=emp_prob,col='emp_prob'))+
   geom_point(aes(x=id,y=trueprob,col='trueprob'))+
   facet_grid(~name)
-
-

@@ -9,7 +9,7 @@ Ntime=2
 myseed=2171506
 Nskill=3
 Nprofile=2^Nskill
-Nrespcov=1
+Nrespcov=0
 Ngroupcov=0
 
 simdata=gen_data_wrapper(Nrespondents=Nrespondents,

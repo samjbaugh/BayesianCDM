@@ -12,15 +12,13 @@ sample_ystar_multinom=function(logits){
 
 require(BayesLogit)
 
-multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat=desmat[[s]]){
+multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat,beta_init){
   desmat=desmat[1:(J-1)]
-  J=length(tunits)
 
   Tmat = trans_mat(m)[[3]][,s]
 
-  beta_init=map(desmat,~rnorm(dim(.)[2]))
-  beta=beta_init
-  V0j=map(desmat,~diag(dim(.)[2]))
+  beta = beta_init
+  V0j  = map(desmat,~diag(dim(.)[2]))
   ncs  = as.numeric(table(Tmat))
 
   all_beta=matrix(NA,Nsim,sum(map_dbl(beta,length)))
