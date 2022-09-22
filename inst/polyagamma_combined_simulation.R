@@ -65,11 +65,11 @@ alpha=gen_alpha(Nprofile,Nskill)
 A=gen_A(alpha)
 
 Delta=Q_to_delta(Q)
-beta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*Delta
-beta_mat[,1]=rnorm(Nquestions,sd=.25)
-beta_vec=beta_mat[Delta==1]
+theta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*Delta
+theta_mat[,1]=rnorm(Nquestions,sd=.25)
+theta_vec=theta_mat[Delta==1]
 
-psi=beta_mat%*%t(A)
+psi=theta_mat%*%t(A)
 theta=logistic(psi)
 sigma_jp=matrix(1,Nquestions,Nprofile)
 #Enforce positivity in all but intercept, as is done in the paper
@@ -86,9 +86,9 @@ Ljp[,1]=-Inf
 
 myt=system.time({
   M=500                                 # iterations for item-response model
-  Nsim=70                               # iterations for transition model
-  beta_samples=matrix(NA,length(beta_vec),M)
-  beta_samples[,1]=c(beta_vec)
+  Nsim=20                               # iterations for transition model
+  theta_samples=matrix(NA,length(theta_vec),M)
+  theta_samples[,1]=c(theta_vec)
 
   prof_samples=list(matrix(NA,Nrespondents,M),
                     matrix(NA,Nrespondents,M))
@@ -113,7 +113,7 @@ myt=system.time({
     prof_probs=multinom_transition_wrapper(trans_params)
 
     for (s in 1:Nskill) {
-      trans_m[[s]][m,] = trans_params[[s]][Nsim,]
+      trans_m[[s]][m,] = colMeans(trans_params[[s]][(Nsim/2):Nsim,])
     }
 
     for(t in 1:Ntime){
@@ -133,60 +133,63 @@ myt=system.time({
       z=kappa/ystar
 
       vjp=get_vjp(ystar,A,sigma_jp)
-      mjp=get_mjp(vjp,z,beta_mat)
+      mjp=get_mjp(vjp,z,theta_mat)
 
-      beta_mat=matrix(rtruncnorm(length(mjp),mean=c(mjp),sd=c(vjp),a=c(Ljp)),
-                      dim(beta_mat)[1],dim(beta_mat)[2])*Delta
+      theta_mat=matrix(rtruncnorm(length(mjp),mean=c(mjp),sd=c(vjp),a=c(Ljp)),
+                      dim(theta_mat)[1],dim(theta_mat)[2])*Delta
 
 
-      psi=beta_mat%*%t(A)
+      psi=theta_mat%*%t(A)
       theta=logistic(psi)
 
-      beta_vec=beta_mat[Delta==1]
-      beta_samples[,m]=c(beta_vec)
+      theta_vec=theta_mat[Delta==1]
+      theta_samples[,m]=c(theta_vec)
     }
     print(m)
   }
 })
 
-# save.image(file='M500_Nsim70.RData')
+# save.image(file='M500_Nsim20.RData')
 
 # True betas
 simdata$true_params$true_beta
 # Last iteration beta estimates
-lapply(1:Nskill, function(s) as.list(trans_params[[s]][Nsim,]))
+lapply(1:Nskill, function(s) as.list(colMeans(trans_params[[s]])))
 # Using trans_m to see how beta changes with m
-select_skill = 3
-select_beta = 1
+select_skill = 1
+select_beta = 2
 plot(trans_m[[select_skill]][,select_beta])
+plot(beta_samples[,8])
+plot(trans_params[[1]][,3])
 
 
-baseline_category=paste0('beta',tunits[J])
-beta_df=trans_params[[1]]%>%
-  data.frame()%>%
-  set_names(paste0('beta',tunits[1:(J-1)]))%>%
-  cbind(set_names(data.frame(tmp=0),baseline_category))%>%
-  mutate(iter=1:Nsim)%>%
-  na.omit()%>%
-  pivot_longer(!iter,values_to='beta')
-ggplot(data=beta_df%>%filter(name!=baseline_category))+
-  aes(x=iter,y=beta)+geom_point()+
-  facet_grid(~name)
-Tmat = trans_mat(m)[[3]][,1]
-emp_prob=prop.table(table(Tmat))%>%
-  as_tibble()%>%
-  mutate(name=paste0('beta',Tmat))%>%
-  rename(emp_prob='n')%>%
-  select(name,emp_prob)
-postsumm=beta_df%>%
-  group_by(iter)%>%
-  mutate(prob=exp(beta)/sum(exp(beta)))%>%
-  group_by(name)%>%
-  summarise(mbeta=mean(beta),
-            varbeta=var(beta),
-            mprob=mean(prob),
-            q05prob=quantile(prob,.05),
-            q95prob=quantile(prob,.95))%>%
-  right_join(emp_prob,by='name')%>%
-  mutate(id="trial1")
 
+# baseline_category=paste0('beta',tunits[J])
+# beta_df=trans_params[[1]]%>%
+#   data.frame()%>%
+#   set_names(paste0('beta',tunits[1:(J-1)]))%>%
+#   cbind(set_names(data.frame(tmp=0),baseline_category))%>%
+#   mutate(iter=1:Nsim)%>%
+#   na.omit()%>%
+#   pivot_longer(!iter,values_to='beta')
+# ggplot(data=beta_df%>%filter(name!=baseline_category))+
+#   aes(x=iter,y=beta)+geom_point()+
+#   facet_grid(~name)
+# Tmat = trans_mat(m)[[3]][,1]
+# emp_prob=prop.table(table(Tmat))%>%
+#   as_tibble()%>%
+#   mutate(name=paste0('beta',Tmat))%>%
+#   rename(emp_prob='n')%>%
+#   select(name,emp_prob)
+# postsumm=beta_df%>%
+#   group_by(iter)%>%
+#   mutate(prob=exp(beta)/sum(exp(beta)))%>%
+#   group_by(name)%>%
+#   summarise(mbeta=mean(beta),
+#             varbeta=var(beta),
+#             mprob=mean(prob),
+#             q05prob=quantile(prob,.05),
+#             q95prob=quantile(prob,.95))%>%
+#   right_join(emp_prob,by='name')%>%
+#   mutate(id="trial1")
+#

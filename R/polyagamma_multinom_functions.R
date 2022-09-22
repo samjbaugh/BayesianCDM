@@ -50,7 +50,7 @@ multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat,beta_init){
 
 multinom_transition_wrapper = function(trans_params)
 {
-  current_beta = lapply(1:Nskill, function(s) trans_params[[s]][Nsim,])
+  current_beta = lapply(1:Nskill, function(s) colMeans(trans_params[[s]][(Nsim/2):Nsim,]))
   suppressMessages({
   current_logits = lapply(1:Nskill, function(s)
                  bind_cols(map2(desmat[[s]][1:(J-1)],current_beta[[s]],~as.numeric(.x%*%.y)))%>%
