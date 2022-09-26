@@ -55,6 +55,20 @@ simulate_cdm_data<-function(Nrespondents=20,
   #generate transition matrices
   transition_probabilities=gen_trans_probs_mult(true_params,tmpdata,
                                                 ret_prof_trans = T)
+
+  # if(is.null(true_profiles)){
+  #   #give an even distribution for profiles at time 1
+  #   true_profiles=list(
+  #     c(sapply(1:Nprofile,function(x) rep(x,ceiling(Nrespondents/Nprofile))))[1:Nrespondents]
+  #   )
+  #   #Use transition probability matrix at future times:
+  #   trans_probs=gen_trans_probs_mult(true_params,tmpdata,ret_prof_trans=T)$profile
+  #     for(t in 2:Ntime){
+  #       true_profiles[[t]]=map_int(1:Nrespondents, function(r)
+  #         sample(Nprofile,1,prob=trans_probs[[r]][true_profiles[[t-1]][r],]))
+  #   }
+  # }
+
   if(is.null(true_profiles)){
     t1_profiles = c()
     t2_profiles = c()
@@ -69,12 +83,12 @@ simulate_cdm_data<-function(Nrespondents=20,
   q_info=gen_q_info(Q)
   interaction_qids=q_info$interaction_qids
 
-  true_probs=logit(generate_logits_discrete(true_params,q_info))
   Xs=map(1:Ntime,
-         function(t) t(sapply(true_profiles[[t]],
-         function(y) sapply(true_probs[,y],
-         function(p) sample(c(0,1),size=1,prob=c(1-p,p))))))
+      function(t) t(sapply(true_profiles[[t]],
+      function(y) sapply(true_params$theta[,y],
+      function(p) sample(c(0,1),size=1,prob=c(1-p,p))))))
   # Xdata[['Xs']]=Xs
+
   Xdata=list(Ns=list(Nrespondents=Nrespondents,Ntime=Ntime,
                      Nquestions=Nquestions,Nrespcov=Nrespcov,
                      Ngroupcov=Ngroupcov,Ngroup=Ngroup,
@@ -126,16 +140,23 @@ gen_data_wrapper=function(Nrespondents=20,
 
   if (multinomial == TRUE)
   {
-    true_beta = lapply(1:Nskill, function(s) map(desmat[[1]][1:(J-1)],
-                       ~rnorm(dim(.)[2]))%>%set_names(paste0('beta',tunits[1:(J-1)])))
+    means = c(1.5, 0.2, 0.5)
+    true_gamma = lapply(1:Nskill, function(s) lapply(1:(J-1), function(j)
+                       rnorm(dim(desmat[[1]][1:(J-1)][[j]])[2],mean=means[j],sd=0.7))
+                       %>%set_names(paste0('gamma',tunits[1:(J-1)])))
     true_logits = lapply(1:Nskill, function(s) bind_cols(map2(desmat[[1]][1:(J-1)],
-                         true_beta[[s]],~as.numeric(.x%*%.y)))%>%cbind(rep(0,Nrespondents)))
-    true_probs = lapply(1:Nskill, function(s) t(apply(true_logits[[s]],1,function(x)
+                         true_gamma[[s]],~as.numeric(.x%*%.y)))%>%cbind(rep(0,Nrespondents)))
+    true_gamma_probs = lapply(1:Nskill, function(s) t(apply(true_logits[[s]],1,function(x)
                         exp(x-max(x))/sum(exp(x-max(x))))))
-    true_params$true_beta = true_beta
+    true_params$true_gamma = true_gamma
     true_params$true_logits = true_logits
-    true_params$true_probs = true_probs
+    true_params$true_gamma_probs = true_gamma_probs
   }
+  # gamma columns matching transition type
+  # [,1] 0->1
+  # [,2] 1->0
+  # [,3] 1->1
+  # [,4] 0->0
 
   simulate_cdm_data(Nrespondents=Nrespondents,
                     Nquestions=Nquestions,
@@ -149,3 +170,5 @@ gen_data_wrapper=function(Nrespondents=20,
                     respondent_designmat=respondent_designmat,
                     group_designmat=group_designmat)
 }
+
+

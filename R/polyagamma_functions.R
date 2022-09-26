@@ -4,6 +4,7 @@
 # %/% division rounded down
 gen_alpha=function(Nprofile,Nskill){
   alpha=matrix(NA,Nprofile,Nskill)
+  # v = c(sapply(1:Nskill, function(s) 2^(s-1)))
   for(ii in 1:Nprofile){
     tmp=rep(NA,Nskill)
     for(jj in 1:Nskill){
@@ -36,17 +37,17 @@ gen_nci=function(profiles){
   nci
 }
 
-sample_profile1=function(r,t,theta,nmat){
+sample_profile1=function(r,t,beta,nmat){
   logp=sapply(1:Nprofile,function(p)
-    sum(dbinom(X[[t]][r,],1,theta[,p],log=T)))
+    sum(dbinom(X[[t]][r,],1,beta[,p],log=T)))
   probs=(nmat[,r]+1)*exp(logp-max(logp))/
     sum((nmat[,r]+1)*exp(logp-max(logp)))
   return(sample(Nprofile,1,prob=probs))
 }
 
-sample_profile2=function(r,t,theta,prior){
+sample_profile2=function(r,t,beta,prior){
   logp=sapply(1:Nprofile,function(p)
-    sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))
+    sum(dbinom(X[[t]][r,],1,beta[,p],log=F)))
   # prior = nmat[,r]+1 from original paper,      nmat = nci
   # change to prof_probs here using transition model
   # probs=(nmat[,r]+1)*exp(logp-max(logp))/
@@ -55,9 +56,9 @@ sample_profile2=function(r,t,theta,prior){
   return(sample(Nprofile,1,prob=probs))
 }
 
-# sample_profile=function(r,t,theta,nmat){
+# sample_profile=function(r,t,beta,nmat){
 #   logp=sapply(1:Nprofile,function(p)
-#     sum(dbinom(X[[t]][r,],1,theta[,p],log=F)))
+#     sum(dbinom(X[[t]][r,],1,beta[,p],log=F)))
 #   probs=(nmat[,r]+1)*exp(logp-max(logp))/
 #     sum(nmat[,r]+1)*exp(logp-max(logp)))
 #   return(sample(Nprofile,1,prob=probs))

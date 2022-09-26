@@ -12,21 +12,21 @@ sample_ystar_multinom=function(logits){
 
 require(BayesLogit)
 
-multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat,beta_init){
+multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat,gamma_init){
   desmat=desmat[1:(J-1)]
 
   Tmat = trans_mat(m)[[3]][,s]
 
-  beta = beta_init
+  gamma = gamma_init
   V0j  = map(desmat,~diag(dim(.)[2]))
   ncs  = as.numeric(table(Tmat))
 
-  all_beta=matrix(NA,Nsim,sum(map_dbl(beta,length)))
-  all_beta[1,] = as.numeric(beta_init)
+  all_gamma=matrix(NA,Nsim,sum(map_dbl(gamma,length)))
+  all_gamma[1,] = as.numeric(gamma_init)
   for(nsim in 2:Nsim){
     #print(nsim)
     suppressMessages({
-      mylogits=map2(desmat,beta,~as.numeric(.x%*%.y))%>%
+      mylogits=map2(desmat,gamma,~as.numeric(.x%*%.y))%>%
         bind_cols()%>%
         cbind(0)
     })
@@ -41,19 +41,19 @@ multinom_sim=function(Nsim,m,Nrespondents,s,tunits,desmat,beta_init){
     mj=map(1:(J-1),
            ~Vj[[.]]%*%(t(desmat[[.]])%*%(kappa[[.]]+ystar[[.]]*C[,.,drop=F])))
 
-    beta=map2(mj,Vj,~mvtnorm::rmvnorm(1,.x,.y))
-    all_beta[nsim,]=unlist(mj)
+    gamma=map2(mj,Vj,~mvtnorm::rmvnorm(1,.x,.y))
+    all_gamma[nsim,]=unlist(mj)
   }
-  return(all_beta)
+  return(all_gamma)
 }
 
 
 multinom_transition_wrapper = function(trans_params)
 {
-  current_beta = lapply(1:Nskill, function(s) colMeans(trans_params[[s]][(Nsim/2):Nsim,]))
+  current_gamma = lapply(1:Nskill, function(s) colMeans(trans_params[[s]][(Nsim/2):Nsim,]))
   suppressMessages({
   current_logits = lapply(1:Nskill, function(s)
-                 bind_cols(map2(desmat[[s]][1:(J-1)],current_beta[[s]],~as.numeric(.x%*%.y)))%>%
+                 bind_cols(map2(desmat[[s]][1:(J-1)],current_gamma[[s]],~as.numeric(.x%*%.y)))%>%
                             cbind(rep(0,Nrespondents)))
   })
   current_prob = lapply(1:Nskill, function(s)

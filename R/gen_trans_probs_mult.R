@@ -5,10 +5,10 @@
 #' @param ret_prof_trans should profiles be returned
 #' @export
 gen_trans_probs_mult=function(params,Xdata,ret_prof_trans=F){
-  transitions01 = sapply(1:Nskill, function(s) params$true_probs[[s]][,1])
-  transitions10 = sapply(1:Nskill, function(s) params$true_probs[[s]][,2])
-  transitions11 = sapply(1:Nskill, function(s) params$true_probs[[s]][,3])
-  transitions00 = sapply(1:Nskill, function(s) params$true_probs[[s]][,4])
+  transitions01 = sapply(1:Nskill, function(s) params$true_gamma_probs[[s]][,1])
+  transitions10 = sapply(1:Nskill, function(s) params$true_gamma_probs[[s]][,2])
+  transitions11 = sapply(1:Nskill, function(s) params$true_gamma_probs[[s]][,3])
+  transitions00 = sapply(1:Nskill, function(s) params$true_gamma_probs[[s]][,4])
 
   if(ret_prof_trans){
     get_transmat=function(r){
@@ -24,6 +24,7 @@ gen_trans_probs_mult=function(params,Xdata,ret_prof_trans=F){
             (transitions00[r,])*(1-profile2)*(1-profile1)), byrow = T, ncol = Nskill)))
         }
       }
+      # retval = t(sapply(1:nrow(retval), function(i) retval[i,]/sum(retval[i,]))) # condition on rows
       return(retval)
     }
     profile_list=gen_q_info(Xdata$Q)$profile_list

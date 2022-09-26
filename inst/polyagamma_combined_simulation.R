@@ -6,7 +6,7 @@ require(dplyr)
 setwd("~/Documents/GitHub/BayesianCDM/")
 devtools::load_all()
 
-
+set.seed(1000)
 #########################
 #                       #
 #     Simulate Data     #
@@ -14,7 +14,7 @@ devtools::load_all()
 #########################
 
 # Data parameters
-Nrespondents=50
+Nrespondents=200
 Nquestions=21
 Ngroup=1
 Ntime=2
@@ -35,10 +35,10 @@ desmat=lapply(1:Nskill, function(s) desmat)
 tunits=c("4", "3", "2", "1")
 J=length(tunits)
 
-# How true_beta is generated in gen_data_wrapper
-# true_beta=map(desmat[[1]][1:(J-1)],~rnorm(dim(.)[2]))%>%
-#   set_names(paste0('beta',tunits[1:(J-1)]))
-# true_logits=bind_cols(map2(desmat[[1]][1:(J-1)],true_beta,~as.numeric(.x%*%.y)))%>%
+# How true_gamma is generated in gen_data_wrapper
+# true_gamma=map(desmat[[1]][1:(J-1)],~rnorm(dim(.)[2]))%>%
+#   set_names(paste0('gamma',tunits[1:(J-1)]))
+# true_logits=bind_cols(map2(desmat[[1]][1:(J-1)],true_gamma,~as.numeric(.x%*%.y)))%>%
 #   cbind(rep(0,Nrespondents))
 # true_probs=t(apply(true_logits,1,function(x) exp(x-max(x))/sum(exp(x-max(x)))))
 
@@ -53,6 +53,10 @@ simdata=gen_data_wrapper(Nrespondents=Nrespondents,
                          multinomial = T)
 
 Xdata      = simdata$Xdata
+sum(Xdata$Xs[[1]])
+sum(Xdata$Xs[[2]])
+
+
 initparams = params = simdata$true_params
 q_info     = gen_q_info(simdata$Xdata$Q)
 X          = list(pre = as.matrix(Xdata$Xs[[1]]), post = as.matrix(Xdata$Xs[[2]]))
@@ -61,19 +65,25 @@ Ns         = list(Nrespondents=Nrespondents,Ntime=Ntime,
                   Ngroupcov=Ngroupcov,Ngroup=Ngroup,
                   Nskill=Nskill,Nprofile=Nprofile)
 
+# gamma columns matching transition type
+# [,1] 0->1
+# [,2] 1->0
+# [,3] 1->1
+# [,4] 0->0
+
 alpha=gen_alpha(Nprofile,Nskill)
 A=gen_A(alpha)
 
 Delta=Q_to_delta(Q)
-theta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*Delta
-theta_mat[,1]=rnorm(Nquestions,sd=.25)
-theta_vec=theta_mat[Delta==1]
+beta_mat=abs(matrix(rnorm(Nquestions*Nprofile,sd=.5),Nquestions,Nprofile))*Delta
+beta_mat[,1]=rnorm(Nquestions,sd=.25)
+beta_vec=beta_mat[Delta==1]
 
-psi=theta_mat%*%t(A)
+psi=beta_mat%*%t(A)
 theta=logistic(psi)
 sigma_jp=matrix(1,Nquestions,Nprofile)
 #Enforce positivity in all but intercept, as is done in the paper
-Ljp=matrix(0,Nquestions,Nprofile)
+Ljp=matrix(-Inf,Nquestions,Nprofile)
 Ljp[,1]=-Inf
 
 
@@ -85,10 +95,10 @@ Ljp[,1]=-Inf
 ##########################################
 
 myt=system.time({
-  M=500                                 # iterations for item-response model
-  Nsim=20                               # iterations for transition model
-  theta_samples=matrix(NA,length(theta_vec),M)
-  theta_samples[,1]=c(theta_vec)
+  M=1000                                 # iterations for item-response model
+  Nsim=10                                # iterations for transition model
+  beta_samples=matrix(NA,length(beta_vec),M)
+  beta_samples[,1]=c(beta_vec)
 
   prof_samples=list(matrix(NA,Nrespondents,M),
                     matrix(NA,Nrespondents,M))
@@ -102,14 +112,14 @@ myt=system.time({
 
     #compute transition probabilities
     if(m==2){
-      beta_init=lapply(1:Nskill, function(s) map(desmat[[s]][1:(J-1)],~rnorm(dim(.)[2])))
+      gamma_init=lapply(1:Nskill, function(s) map(desmat[[s]][1:(J-1)],~rnorm(dim(.)[2])))
     } else {
-      beta_init=lapply(1:Nskill, function(s) as.list(trans_params[[s]][Nsim,]))
+      gamma_init=lapply(1:Nskill, function(s) as.list(trans_params[[s]][Nsim,]))
     }
     trans_params=lapply(1:Nskill, function(s)
       multinom_sim(Nsim,m,Nrespondents,s=s,
       tunits=tunits,desmat[[s]],
-      beta_init=beta_init[[s]]))
+      gamma_init=gamma_init[[s]]))
     prof_probs=multinom_transition_wrapper(trans_params)
 
     for (s in 1:Nskill) {
@@ -133,34 +143,45 @@ myt=system.time({
       z=kappa/ystar
 
       vjp=get_vjp(ystar,A,sigma_jp)
-      mjp=get_mjp(vjp,z,theta_mat)
+      mjp=get_mjp(vjp,z,beta_mat)
 
-      theta_mat=matrix(rtruncnorm(length(mjp),mean=c(mjp),sd=c(vjp),a=c(Ljp)),
-                      dim(theta_mat)[1],dim(theta_mat)[2])*Delta
+      beta_mat=matrix(rtruncnorm(length(mjp),mean=c(mjp),sd=c(vjp),a=c(Ljp)),
+                      dim(beta_mat)[1],dim(beta_mat)[2])*Delta
 
 
-      psi=theta_mat%*%t(A)
+      psi=beta_mat%*%t(A)
       theta=logistic(psi)
 
-      theta_vec=theta_mat[Delta==1]
-      theta_samples[,m]=c(theta_vec)
+      beta_vec=beta_mat[Delta==1]
+      beta_samples[,m]=c(beta_vec)
     }
     print(m)
   }
 })
 
-# save.image(file='M500_Nsim20.RData')
+save.image(file='M1000_Nsim10.RData')
 
-# True betas
-simdata$true_params$true_beta
-# Last iteration beta estimates
-lapply(1:Nskill, function(s) as.list(colMeans(trans_params[[s]])))
-# Using trans_m to see how beta changes with m
-select_skill = 1
-select_beta = 2
-plot(trans_m[[select_skill]][,select_beta])
-plot(beta_samples[,8])
+# True gammas converted to probabilies
+lapply(1:Nskill, function(s) simdata$true_params$true_gamma_probs[[s]][1,])
+# Result gammas converted to probabilities
+result_gamma = lapply(1:Nskill, function(s) as.list(colMeans(trans_params[[s]])))
+result_gamma_logits = lapply(1:Nskill, function(s) bind_cols(map2(desmat[[1]][1:(J-1)],
+                               result_gamma[[s]],~as.numeric(.x%*%.y)))%>%cbind(rep(0,Nrespondents)))
+result_gamma_probs = lapply(1:Nskill, function(s) t(apply(result_gamma_logits[[s]],1,function(x)
+  exp(x-max(x))/sum(exp(x-max(x))))))
+lapply(1:Nskill, function(s) result_gamma_probs[[s]][1,])
+
+# Using trans_m to see how gamma changes with m
+select_skill = 2
+select_gamma = 3
+plot(trans_m[[select_skill]][,select_gamma])
+plot(beta_samples[6,])
 plot(trans_params[[1]][,3])
+
+# Compare points estimate beta results with true betas
+plot(colMeans(t(beta_samples)), ylim = c(-3,5))
+points(simdata$true_params$beta, pch = 20)
+
 
 
 
@@ -192,4 +213,3 @@ plot(trans_params[[1]][,3])
 #             q95prob=quantile(prob,.95))%>%
 #   right_join(emp_prob,by='name')%>%
 #   mutate(id="trial1")
-#
