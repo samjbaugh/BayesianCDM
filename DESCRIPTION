@@ -1,5 +1,5 @@
 Package: cdmfits
-Title: Code for Fitting Various Cognitive Diagnostic Models.
+Title: Code for Fitting Various Cognitive Diagnostic Models
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Samuel",
@@ -12,7 +12,12 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 Imports: 
-    CDM,
-    stats
+    BayesLogit,
+    stats,
+    dplyr,
+    magrittr,
+    purrr,
+    truncnorm,
+    mvtnorm
