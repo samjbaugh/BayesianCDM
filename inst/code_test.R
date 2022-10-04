@@ -47,6 +47,7 @@ gamma_list_true=
   list(list(c(-2,3),c(-1.5),c(-1.5)),
        list(c(-2,3),c(-1.5),c(-1.5)))
 gamma_list=gamma_list_true
+true_params$gamma_list=gamma_list
 
 gamma_to_transprobs(gamma_list,Xtmp)
 
@@ -74,7 +75,7 @@ if(F){
 }
 
 Ys=generate_data(Nrespondents,Nq_list,true_params$beta_mat,true_alpha)
-sampler_out=sample_longitudinal(Ys,Xs,Qs,10,
+sampler_out=sample_longitudinal(Ys,Xs,Qs,100,
                                 initparams = NULL,
                                 priors=list(beta_prior=500,gamma_prior=.1))
 
@@ -160,7 +161,7 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,10,
                pmean=unlist(tmp$gamma_mean),
                psd=sqrt(unlist(map(tmp$gamma_var,~map(.,diag)))),
                i=1:length(gamma_postmean))%>%
-    mutate(skill=c(rep(1,4),rep(2,4)))
+    mutate(skill=c(rep(1,4),rep(2,4)),i=c(1:4,1:4))
   pgamma=ggplot(plotdf)+
     geom_point(aes(x=i-.25,y=postmean,col='posterior mean'))+
     geom_errorbar(aes(x=i-.25,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='posterior mean'))+

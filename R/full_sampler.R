@@ -48,10 +48,13 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
     }
 
 
-
+    gen_init=T
     if(gen_init){
       beta_mat=matrix(rnorm(Nprofile*Nq_total),Nq_total,Nprofile)*
         delta_cat
+      beta_mat[,1]=-abs(beta_mat[,1])
+      beta_mat[,2]=abs(beta_mat[,2])
+      beta_mat[,3]=abs(beta_mat[,3])
       gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
     }else{
       initparams=true_params
@@ -60,8 +63,10 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
     }
     # gamma_list=gamma_list_true
     beta_vec=c(beta_mat[delta_cat==1])
+    # beta_mat=true_params$beta_mat
+    # gamma_list=gamma_list_true
+    # alpha_mat=true_alpha
     gamma_vec=unlist(gamma_list)
-    alpha_mat=true_alpha
 
     trans_probs=gamma_to_transprobs(gamma_list,Xs)
     trans_mat=matrix(NA,Nrespondents,Nskill)
@@ -98,8 +103,7 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       theta=logistic(ltheta)
 
       #sample alpha
-      # trans_probs=gamma_to_transprobs(gamma_list,Xs)
-      trans_probs=map(1:Nskill,~matrix(.25,Nrespondents,2^Ntime))
+      trans_probs=gamma_to_transprobs(gamma_list,Xs)
       #Do this to avoid NA's:
       theta[theta==1]=.99
       alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
