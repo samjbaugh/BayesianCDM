@@ -22,12 +22,28 @@ transitions_to_alpha=function(trans_mat,transitions){
 #'  Convert alpha matrix to alpha matrix
 #'
 #' @description Add detail
+#' @param Xbase Design matrix for (0,1) for each skill
+build_Xlist_01=function(Xbase){
+  X1=matrix(1,dim(Xbase)[1],1)
+  retval=map(1:Nskill,list)
+  for(i in 1:Nskill){
+    retval[[i]][[1]]=Xbase
+    for(j in 2:(2^Ntime-1)){
+      retval[[i]][[j]]=X1
+    }
+  }
+  retval
+}
+
+#'  Convert alpha matrix to alpha matrix
+#'
+#' @description Add detail
 #' @param alpha_mat alpha_mat
 #' @param profiles Profile list
 alpha_to_transitions=function(alpha_mat,profiles){
   Nrespondents=dim(alpha_mat)[1]
   Ntime=dim(alpha_mat)[2]
-  Nskill=dim(profiles)[1]
+  Nskill=dim(profiles)[2]
   retval=matrix(NA,Nrespondents,Nskill)
   nu=2^(Ntime:1-1)
   for(i in 1:Nrespondents){
@@ -70,51 +86,57 @@ sample_ystar=function(psi,nct,qt_map){
   ystar
 }
 
-#'  Sample tstar for transition model
-#'
-#' @description Add detail
-#' @param eta See Polson paper
-#' @importFrom BayesLogit rpg
-sample_tstar=function(eta){
-  Nskill=length(eta)
-  Ntransiton=dim(eta[[1]])[2]
-  tstar=map(1:Nskill,~matrix(NA,Nrespondents,2^Ntime))
-  for(i in 1:Nskill){
-    for(j in 1:Ntransiton){
-      tstar[[i]][,j]=map_dbl(eta[[i]][,j],~rpg(num=1,h=1,z=.))
-    }
-  }
-  tstar
-}
-
 #'  Convert gamma to transition probabilities
 #'
 #' @description Add detail
 #' @param gamma_list List of gamma parameters
 #' @param Xs list of design matrices
-gamma_to_transprobs=function(gamma_list,Xs){
-  Nrespondents=dim(Xs[[1]])[1]
-  map2(gamma_list,Xs,~(.y%*%.x)%>%
-         {cbind(rep(0,Nrespondents),.)}%>%
-         apply(1,function(x) exp(x)/sum(exp(x)))%>%
-         t())
+gamma_to_transprobs=function(gamma_list,Xs) apply_gamma_X(gamma_list,Xs,function(x) exp(x)/sum(exp(x)))
+
+apply_gamma_X=function(gamma_list,Xs,f){
+  Ntransition=length(gamma_list[[1]])+1
+  Nskill=length(Xs)
+  Nr=dim(Xs[[k]][[1]])[1]
+  retval=list()
+  for(k in 1:Nskill){
+    a=do.call(cbind,map(1:(Ntransition-1),~Xs[[k]][[.]]%*%gamma_list[[k]][[.]]))
+    tmp=cbind(rep(0,Nr),a)
+    retval[[k]]=t(apply(tmp,1,f))
+  }
+  retval
 }
+# gamma_to_transprobs=function(gamma_list,Xs){
+#   Nrespondents=dim(Xs[[1]])[1]
+#   map2(gamma_list,Xs,~(.y%*%.x)%>%
+#          {cbind(rep(0,Nrespondents),.)}%>%
+#          apply(1,function(x) exp(x)/sum(exp(x)))%>%
+#          t())
+# }
 
 
 #'  Sample gamma
 #'
 #' @description Add detail
-#' @param tstar tstar
 #' @param gamma_list gamma_list
 #' @param trans_mat trans_mat
 #' @param Xs Xs
 #' @param priorsd_gamma priorsd_gamma
 #' @param retmean retmean
 #' @importFrom BayesLogit rpg
-sample_gamma=function(tstar,gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
-  Nskill=length(tstar)
-  Nrespondents=dim(tstar[[1]])[1]
-  Ntransition=dim(tstar[[1]])[2]
+sample_gamma=function(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
+  Nskill=length(gamma_list)
+  Nrespondents=dim(Xs[[1]][[1]])[1]
+  Ntransition=length(gamma_list[[1]])+1
+  Ntime=log2(Ntransition)
+
+  eta=apply_gamma_X(gamma_list,Xs,function(x) x-log(sum(exp(x))-exp(x)))
+  tstar=map(1:Nskill,~matrix(NA,Nrespondents,2^Ntime))
+  for(i in 1:Nskill){
+    for(j in 1:Ntransition){
+      tstar[[i]][,j]=map_dbl(eta[[i]][,j],~rpg(num=1,h=1,z=.))
+    }
+  }
+
   kappa=map(1:Nskill,~matrix(NA,Nrespondents,Ntransition))
   for(i in 1:Nskill){
     for(j in 1:Ntransition){
@@ -122,20 +144,18 @@ sample_gamma=function(tstar,gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
     }
   }
 
-  C=map2(gamma_list,Xs,~(.y%*%.x)%>%
-             {cbind(rep(0,Nrespondents),.)}%>%
-             apply(1,function(x) log(sum(exp(x))-exp(x)))%>%
-             t())
+  C=apply_gamma_X(gamma_list,Xs,function(x) log(sum(exp(x))-exp(x)))
   gamma_var=map(1:Nskill,list)
   for(i in 1:Nskill){
-    for(j in 1:(Ntransition-1)){
-      gibbsvar_gamma=solve(crossprod(Xs[[i]]*tstar[[i]][,j],Xs[[i]])+solve(priorsd_gamma[[i]]))
-      gibbsmean_gamma=gibbsvar_gamma%*%(t(Xs[[i]])%*%(kappa[[i]][,j]+tstar[[i]][,j]*C[[i]][,j]))
+    for(j in 2:Ntransition){
+      gibbsvar_gamma=solve(crossprod(Xs[[i]][[j-1]]*tstar[[i]][,j],Xs[[i]][[j-1]])+
+                             solve(priorsd_gamma[[i]][[j-1]]))
+      gibbsmean_gamma=gibbsvar_gamma%*%(t(Xs[[i]][[j-1]])%*%(kappa[[i]][,j]+tstar[[i]][,j]*C[[i]][,j]))
       if(retmean){
-        gamma_var[[i]][[j]]=gibbsvar_gamma
-        gamma_list[[i]][,j]=gibbsmean_gamma
+        gamma_var[[i]][[j-1]]=gibbsvar_gamma
+        gamma_list[[i]][[j-1]]=gibbsmean_gamma
       }else{
-        gamma_list[[i]][,j]=rmvnorm(1,gibbsmean_gamma,gibbsvar_gamma)
+        gamma_list[[i]][[j-1]]=c(rmvnorm(1,gibbsmean_gamma,gibbsvar_gamma))
       }
     }
   }
@@ -162,7 +182,6 @@ sample_alpha_mat=function(alpha_mat,theta,trans_probs,qt_map,profiles,Ys){
   Nprofile=dim(theta)[2]
   for(i in 1:dim(alpha_mat)[1]){
     for(t in 1:dim(alpha_mat)[2]){
-      iprof=alpha_mat[i,]
       theta_time=theta[qt_map==t,]
       joint_prob_alpha=rep(NA,Nprofile)
       logcond_prob_Y=rep(NA,Nprofile)
@@ -171,8 +190,9 @@ sample_alpha_mat=function(alpha_mat,theta,trans_probs,qt_map,profiles,Ys){
         profile_sequence[t]=c
         prof_seq=profiles[profile_sequence,]
         trans_ints=t(prof_seq)%*%nu+1
-        joint_prob_alpha[c]=prod(map_dbl(1:Nskill,~trans_probs[[.]][i,trans_ints][.]))
-        logcond_prob_Y[c]=sum((1-Ys[[t]][i,])*log(theta_time[,c])+
+        joint_prob_alpha[c]=
+          prod(map_dbl(1:Nskill,~trans_probs[[.]][i,trans_ints][.]))
+        logcond_prob_Y[c]=sum((1-Ys[[t]][i,])*log(1-theta_time[,c])+
                                 Ys[[t]][i,]*log(theta_time[,c]))
       }
       cond_prob_alpha=joint_prob_alpha/sum(joint_prob_alpha)
@@ -214,6 +234,16 @@ beta_gibbs_dist=function(ystar,A,z,beta_mat,priorsd_beta){
   return(list(mean=condmean,sd=condsd))
 }
 
+
+sample_beta=function(ystar,A,kappa,priorsd_beta=.5){
+  beta_mat=matrix(NA,dim(ystar)[1],dim(ystar)[2])
+  for(j in 1:dim(ystar)[1]){
+    Vj=solve(t(A)%*%diag(ystar[j,])%*%A+(1/priorsd_beta)*diag(dim(ystar)[2]))
+    mj=Vj%*%t(A)%*%kappa[j,]
+    beta_mat[j,]=mj
+  }
+  beta_mat
+}
 
 #'  Logistic function
 #'

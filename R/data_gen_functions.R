@@ -15,10 +15,9 @@ generate_params=function(Nrespondents,Qs,Xs){
 
   delta_cat=do.call(rbind,map(Qs,Q_to_delta))
 
-  beta_mat=matrix(rnorm(Nprofile*Nq_total),Nq_total,Nprofile)*
+  beta_mat=matrix(rnorm(Nprofile*Nq_total,sd=2),Nq_total,Nprofile)*
     delta_cat
-  gamma_list=map(Xs,
-                 ~matrix(rnorm(dim(.)[2]*(Ntransition-1)),dim(.)[2],Ntransition-1))
+  gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
   return(list(beta_mat=beta_mat,gamma_list=gamma_list))
 }
 
@@ -28,10 +27,9 @@ generate_params=function(Nrespondents,Qs,Xs){
 #' @param Nrespondents Nrespondents
 #' @param gamma_list gamma_list
 #' @param Xs Xs
-sample_alpha_from_gamma=function(Nrespondents,gamma_list,Xs){
+sample_alpha_from_gamma=function(Nrespondents,Ntime,gamma_list,Xs){
   trans_probs=gamma_to_transprobs(gamma_list,Xs)
   Nskill=length(Xs)
-  Ntime=log2(dim(gamma_list[[1]])[2]+1)
   trans_mat=matrix(NA,Nrespondents,Nskill)
   for(i in 1:Nrespondents){
     for(j in 1:Nskill){
