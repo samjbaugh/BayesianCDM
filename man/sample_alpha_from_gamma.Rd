@@ -4,10 +4,12 @@
 \alias{sample_alpha_from_gamma}
 \title{Sample alpha from gamma}
 \usage{
-sample_alpha_from_gamma(Nrespondents, gamma_list, Xs)
+sample_alpha_from_gamma(Nrespondents, Ntime, gamma_list, Xs)
 }
 \arguments{
 \item{Nrespondents}{Nrespondents}
+
+\item{Ntime}{Ntime}
 
 \item{gamma_list}{gamma_list}
 

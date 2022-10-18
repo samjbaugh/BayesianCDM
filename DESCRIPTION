@@ -1,5 +1,5 @@
 Package: cdmfits
-Title: Code for Fitting Various Cognitive Diagnostic Models
+Title: Conjugate Gibbs sampling and variational inference for cognitive diagnostic longitudinal logistic transition models
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Samuel",
@@ -7,7 +7,7 @@ Authors@R:
            role = c("aut", "cre"),
            email = "samuelbaugh@ucla.edu",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+Description: This package contains code for MCMC sampling (completed) and variational Bayesian estimation (in development) for cognitive diagnostic longitudinal logistic transition models.  
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

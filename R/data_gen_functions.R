@@ -25,6 +25,7 @@ generate_params=function(Nrespondents,Qs,Xs){
 #'
 #' @description Add detail
 #' @param Nrespondents Nrespondents
+#' @param Ntime Ntime
 #' @param gamma_list gamma_list
 #' @param Xs Xs
 sample_alpha_from_gamma=function(Nrespondents,Ntime,gamma_list,Xs){

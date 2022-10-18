@@ -13,7 +13,7 @@
 #' @importFrom mvtnorm rmvnorm
 #' @export
 
-sample_longitudinal=function(Ys,Xs,Qs,M,
+fit_longitudinal_cdm=function(Ys,Xs,Qs,M,
                              priors=list(beta_prior=1,gamma_prior=1),
                              initparams=NULL){
     gen_init=is.null(initparams)
@@ -57,7 +57,6 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       beta_mat[,3]=abs(beta_mat[,3])
       gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
     }else{
-      initparams=true_params
       beta_mat=initparams$beta_mat
       gamma_list=initparams$gamma_list
     }
@@ -76,10 +75,6 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       }
     }
     alpha_mat=transitions_to_alpha(trans_mat,transitions)
-    print(mean(alpha_mat==true_alpha))
-    alpha_vec=c(alpha_mat)
-
-    print(mean(alpha_mat==true_alpha))
     alpha_vec=c(alpha_mat)
 
     #MCMC setup
@@ -104,12 +99,12 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
 
       #sample alpha
       trans_probs=gamma_to_transprobs(gamma_list,Xs)
+      print(mean(alpha_mat==true_alpha))
+
       #Do this to avoid NA's:
       theta[theta==1]=.99
       alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
       print(table(alpha_mat))
-      print(mean(alpha_mat==true_alpha))
-
       #calculate new transitions
       trans_mat=alpha_to_transitions(alpha_mat,profiles)
 
@@ -130,10 +125,8 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
           kappa[j,c]=sum(Yconcat[alpha_mat[,t]==c,j])-nct[c,t]/2
         }
       }
-      # kappa=sweep(njc,2,nc/2,'-') #t(apply(nmat,1,function(x) x-sum(x)/2))
       z=kappa/ystar
 
-      # if(F){
       beta_post=beta_gibbs_dist(ystar,A,z,beta_mat,priorsd_beta)
       beta_mat=matrix(rtruncnorm(length(beta_mat),mean=c(beta_post$mean),sd=c(beta_post$sd),a=c(Ljp)),
                       dim(beta_mat)[1],dim(beta_mat)[2])*delta_cat

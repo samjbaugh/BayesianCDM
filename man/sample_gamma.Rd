@@ -4,11 +4,9 @@
 \alias{sample_gamma}
 \title{Sample gamma}
 \usage{
-sample_gamma(tstar, gamma_list, trans_mat, Xs, priorsd_gamma, retmean = F)
+sample_gamma(gamma_list, trans_mat, Xs, priorsd_gamma, retmean = F)
 }
 \arguments{
-\item{tstar}{tstar}
-
 \item{gamma_list}{gamma_list}
 
 \item{trans_mat}{trans_mat}

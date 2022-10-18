@@ -4,12 +4,12 @@ require(mvtnorm)
 require(truncnorm)
 require(tidyverse)
 
-
 Nrespondents=200
 Nskill=2
 # Qs=map(Nq_list,~profiles[sample(2^Nskill,.,replace=T),])
 Xbase=cbind(rep(1,Nrespondents),c(rep(0,Nrespondents/2),rep(1,Nrespondents/2)))
-Xs=build_Xlist_01(Xbase)
+Ntime=2
+Xs=build_Xlist_01(Xbase,Nskill,Ntime)
 
 Qs=list(t(matrix(c(rep(c(0,0),25),
                    rep(c(0,1),25),
@@ -42,7 +42,7 @@ b=c(.2,.55,.05,.2)
 # gamma_list_true=map(1:Nskill,~
 #   rbind(g1,g2),
 # )
-Xtmp=build_Xlist_01(rbind(c(1,0),c(1,1)))
+Xtmp=build_Xlist_01(rbind(c(1,0),c(1,1)),Nskill,Ntime)
 gamma_list_true=
   list(list(c(-2,3),c(-1.5),c(-1.5)),
        list(c(-2,3),c(-1.5),c(-1.5)))
@@ -75,7 +75,7 @@ if(F){
 }
 
 Ys=generate_data(Nrespondents,Nq_list,true_params$beta_mat,true_alpha)
-sampler_out=sample_longitudinal(Ys,Xs,Qs,100,
+sampler_out=fit_longitudinal_cdm(Ys,Xs,Qs,1000,
                                 initparams = NULL,
                                 priors=list(beta_prior=500,gamma_prior=.1))
 
@@ -98,20 +98,17 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,100,
     geom_point(aes(x=i,y=postmean,col='postmean'))+
     geom_errorbar(aes(x=i,ymin=postmean-2*betasd,
                       ymax=postmean+2*betasd,col='postmean'))+
-    geom_point(aes(x=i,y=betatrue,col='betatrue'))
+    geom_point(aes(x=i,y=betatrue,col='betatrue'))+
+    coord_cartesian(ylim = c(-4, 4))+
+    ylab('Posterior Mean')+
+    scale_color_discrete(labels=c('True Beta','Posterior'),name='Beta')
+    # ylim(c(-4,4))
   pbeta
 }
 
 {
-
   alpha_post=sampler_out$samples%>%
     dplyr::select(starts_with('alpha'))
-  # M=20
-  # data.frame(a=as.numeric(alpha_post[M,]),ii=1:(Nrespondents*Ntime))%>%
-  #   mutate(i=ti_map[ii],t=it_map[ii])%>%
-  #   mutate(true_alpha=c(true_alpha))%>%
-  #   ggplot()+geom_point(aes(x=i,y=a,col=factor(true_alpha)))+
-  #   facet_grid(~t)
 
   profiles=map_dfr(1:Nprofile-1,
                    ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
@@ -132,19 +129,21 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,100,
     group_by(name,true_prof,i,t)%>%
     summarise(prop_correct=prop[true_prof[1]])
   prof_labels=
-    apply(profiles,1,function(x) paste(x,collapse=''))
+    apply(profiles,1,function(x) paste0('(',paste(x,collapse=','),')'))
   palpha=true_probs%>%
-    mutate(t=factor(t,levels=1:Ntime,labels=paste0('time',1:Ntime)))%>%
+    mutate(t=factor(t,levels=1:Ntime,labels=paste0('Time ',1:Ntime)))%>%
     ggplot()+
     geom_point(aes(x=i,y=prop_correct,color=factor(true_prof)))+
     facet_grid(~t)+
     xlab('Person ID')+
-    scale_color_discrete(name='profile',labels=prof_labels)
+    ylab('Posterior Accuracy Rate')+
+    scale_color_discrete(name='Skill Profile',labels=prof_labels)
   palpha
 }
   # scale_y_log10()
 
 {
+  priors=list(beta_prior=500,gamma_prior=.1)
   gamma_postmean=sampler_out$samples%>%
     dplyr::select(contains('gamma'))%>%
     apply(2,mean)
@@ -161,12 +160,16 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,100,
                pmean=unlist(tmp$gamma_mean),
                psd=sqrt(unlist(map(tmp$gamma_var,~map(.,diag)))),
                i=1:length(gamma_postmean))%>%
-    mutate(skill=c(rep(1,4),rep(2,4)),i=c(1:4,1:4))
+    mutate(skill=factor(c(rep(1,4),rep(2,4)),levels=c(1,2),labels=c('Skill 1','Skill 2')),
+           i=factor(c(1:4,1:4),levels=c(1,3,4,2),
+                    labels=c('Base (0,1)','Base (1,0)','Base (1,1)','Intervention (0,1)')))
   pgamma=ggplot(plotdf)+
-    geom_point(aes(x=i-.25,y=postmean,col='posterior mean'))+
-    geom_errorbar(aes(x=i-.25,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='posterior mean'))+
-    geom_point(aes(x=i,y=gamma_true,col='true'))+
-    # geom_point(aes(x=i+.25,y=pmean,col='posterior mean'))+
+    geom_point(aes(x=i,y=postmean,col='Posterior'))+
+    geom_errorbar(aes(x=i,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='Posterior'),lty='dashed')+
+    geom_point(aes(x=i,y=gamma_true,col='True Beta'),cex=5,pch=18)+
+    ylab('Gamma')+
+    scale_color_manual(name='Gamma',values=c('blue','red'))+
+  # geom_point(aes(x=i+.25,y=pmean,col='posterior mean'))+
     # geom_errorbar(aes(x=i+.25,ymin=pmean-psd*2,ymax=pmean+psd*2,col='ss'))+
     facet_grid(~skill)
   pgamma

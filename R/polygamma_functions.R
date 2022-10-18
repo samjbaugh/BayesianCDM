@@ -23,7 +23,9 @@ transitions_to_alpha=function(trans_mat,transitions){
 #'
 #' @description Add detail
 #' @param Xbase Design matrix for (0,1) for each skill
-build_Xlist_01=function(Xbase){
+#' @param Nskill Nskill
+#' @param Ntime Ntime
+build_Xlist_01=function(Xbase,Nskill,Ntime){
   X1=matrix(1,dim(Xbase)[1],1)
   retval=map(1:Nskill,list)
   for(i in 1:Nskill){
@@ -96,7 +98,7 @@ gamma_to_transprobs=function(gamma_list,Xs) apply_gamma_X(gamma_list,Xs,function
 apply_gamma_X=function(gamma_list,Xs,f){
   Ntransition=length(gamma_list[[1]])+1
   Nskill=length(Xs)
-  Nr=dim(Xs[[k]][[1]])[1]
+  Nr=dim(Xs[[1]][[1]])[1]
   retval=list()
   for(k in 1:Nskill){
     a=do.call(cbind,map(1:(Ntransition-1),~Xs[[k]][[.]]%*%gamma_list[[k]][[.]]))
