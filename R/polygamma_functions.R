@@ -237,15 +237,28 @@ beta_gibbs_dist=function(ystar,A,z,beta_mat,priorsd_beta){
 }
 
 
-sample_beta=function(ystar,A,kappa,priorsd_beta=.5){
-  beta_mat=matrix(NA,dim(ystar)[1],dim(ystar)[2])
-  for(j in 1:dim(ystar)[1]){
-    Vj=solve(t(A)%*%diag(ystar[j,])%*%A+(1/priorsd_beta)*diag(dim(ystar)[2]))
-    mj=Vj%*%t(A)%*%kappa[j,]
-    beta_mat[j,]=mj
+tt=function(ystar,A,z,beta_mat,priorsd_beta){
+  Nq_total=dim(ystar)[1]
+  Nprofile=dim(ystar)[2]
+  condsd=matrix(NA,Nq_total,Nprofile)
+  for(j in 1:Nq_total){
+    for(p in 1:Nprofile){
+      omegaj=diag(ystar[j,])
+      condsd[j,p]=sqrt(1/(t(A[,p])%*%(ystar[j,]*A[,p])+1/(priorsd_beta[j,p]^2)))
+    }
   }
-  beta_mat
+
+  condmean=matrix(NA,Nq_total,Nprofile)
+  for(j in 1:Nq_total){
+    for(p in 1:Nprofile){
+      omegaj=diag(ystar[j,])
+      ztildej=z[j,]-A[,-p]%*%beta_mat[j,-p]
+      condmean[j,p]=condsd[j,p]^2*t(A[,p])%*%(ystar[j,]*ztildej)
+    }
+  }
+  return(list(mean=condmean,sd=condsd))
 }
+
 
 #'  Logistic function
 #'
