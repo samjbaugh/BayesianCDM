@@ -8,13 +8,13 @@
   require(truncnorm)
   require(tidyverse)
   
-  setwd("~/Desktop/BayesianCDM-package_branch/")
+  setwd("~/CDM/")
   devtools::load_all()
-  setwd("~/Desktop/BayesianCDM-package_branch/inst/empirical_dataset/")
+  setwd("~/CDM/inst/empirical_dataset/")
   dat = read.table("prepost1.txt")[,-1]
   colnames(dat) = c(paste("Pre",1:21),paste("Post",1:21)) #gives items names for mirt
   dat[dat == 99] = NA                                     #replace 99 with NA's
-  complete.dat = dat[complete.cases(dat),]                #remove NA's
+  complete.dat     = dat[complete.cases(dat),]            #remove NA's
   complete.dat.mat = as.matrix(complete.dat)
   Ys            = list(pre = complete.dat.mat[,1:21], post = complete.dat.mat[,22:42])
   
@@ -23,7 +23,7 @@
   Nskill = k   = 4
   
   Xbase=cbind(rep(1,Nrespondents),rep(1,Nrespondents))
-  Xs=build_Xlist_01(Xbase)
+  Xs=build_Xlist_01(Xbase,Nskill,Ntime)
   
   Q = matrix(0, nrow = ncol(complete.dat.mat)/2, ncol = 4)
   Q[c(1,13:14,17), 1] = Q[c(2:3,9:12), 2] =
@@ -35,11 +35,14 @@
   Nprofile=2^Nskill
   
   runtime = system.time({
-  sampler_out=sample_longitudinal(Ys,Xs,Qs,200,
+  sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,5000,
                                   initparams = NULL,
                                   priors=list(beta_prior=500,gamma_prior=1),
                                   fixed_beta = T)})
 }
+
+
+###################### OUTPUT ###################### 
 
 {
   delta_cat=do.call(rbind,map(Qs,Q_to_delta))
@@ -65,12 +68,34 @@
 }
 
 ##### beta point estimates
-plot(beta_mat[1:21], ylim = c(-6,6), xlab = "Questions", ylab = "Value")
+plot(beta_mat[1:21], ylim = c(-8,12), xlab = "Questions", ylab = "Value")
 beta_order = c(1,13,14,17,2,3,9,10,11,12,4,5,6,7,8,15,16,18,19,20,21)
 points(beta_mat[22:42][order(beta_order)], pch = 20)
 
+plot(sampler_out$samples[,39], type = "l")
+plot(sampler_out$samples$`gamma_vec[8]`, type = "l")
+
+full_sampler_out = sampler_out
+sampler_out = sampler_out$samples[1000:5000,]
+
+
 ##### conditional transition probabilities
-post_probs = lapply(1:Nskill, function(s) gamma_to_transprobs(sampler_out$gamma_post$gamma_mean, Xs)[[s]][1,])
+gamma_samples = sampler_out%>%dplyr::select(contains('gamma'))
+gamma_means = colMeans(gamma_samples)
+gamma_mean = list(list(array(c(gamma_means[1], gamma_means[2]), dim = c(1,2)),
+                       array(gamma_means[3], dim = c(1,1)),
+                       array(gamma_means[4], dim = c(1,1))),
+                  list(array(c(gamma_means[5], gamma_means[6]), dim = c(1,2)),
+                       array(gamma_means[7], dim = c(1,1)),
+                       array(gamma_means[8], dim = c(1,1))),
+                  list(array(c(gamma_means[9], gamma_means[10]), dim = c(1,2)),
+                       array(gamma_means[11], dim = c(1,1)),
+                       array(gamma_means[12], dim = c(1,1))),
+                  list(array(c(gamma_means[13], gamma_means[14]), dim = c(1,2)),
+                       array(gamma_means[15], dim = c(1,1)),
+                       array(gamma_means[16], dim = c(1,1))))
+
+post_probs = lapply(1:Nskill, function(s) gamma_to_transprobs(gamma_mean, Xs)[[s]][1,])
 cond_post_probs = list()
 for (i in 1:Nskill)
 {

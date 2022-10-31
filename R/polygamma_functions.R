@@ -184,7 +184,8 @@ sample_alpha_mat=function(alpha_mat,theta,trans_probs,qt_map,profiles,Ys){
   Nprofile=dim(theta)[2]
   for(i in 1:dim(alpha_mat)[1]){
     for(t in 1:dim(alpha_mat)[2]){
-      theta_time=theta[qt_map==t,]
+      # theta_time=theta[qt_map==t,]
+      theta_time = theta
       joint_prob_alpha=rep(NA,Nprofile)
       logcond_prob_Y=rep(NA,Nprofile)
       for(c in 1:Nprofile){
@@ -267,4 +268,74 @@ tt=function(ystar,A,z,beta_mat,priorsd_beta){
 logistic=function(x) {
   1/(1+exp(-x))
 }
+
+
+
+
+################## fixed_beta functions ################## 
+
+#'  Sample polya-gamma auxillary variables (fixed_beta)
+#'
+#' @description Add detail
+#' @param psi See Balamuta paper
+#' @param nct See Balamuta paper
+#' @importFrom BayesLogit rpg
+sample_ystar_fb=function(psi,nct){
+  Nq=dim(psi)[1]
+  Nprofile=dim(psi)[2]
+  ystar=map(1:Ntime,~matrix(NA,Nq,Nprofile))
+  for(t in 1:Ntime){
+    for(j in 1:Nq){
+      for(c in 1:Nprofile){
+        ystar[[t]][j,c]=rpg(h=max(nct[c,t],1),z=psi[j,c])
+      }
+    }
+  }
+  ystar
+}
+
+#'  Return mean and variance of beta's Gibbs distribution (fixed_beta)
+#'
+#' @description Add detail
+#' @param ystar sampled auxiliary values
+#' @param A Profile design matrix
+#' @param z z values
+#' @param beta_mat Old beta_mat
+#' @param priorsd_beta Variance priors
+beta_gibbs_dist_fb=function(ystar,A,z,beta_mat,priorsd_beta){
+  Nq=dim(ystar[[1]])[1]
+  Nprofile=dim(ystar[[1]])[2]
+  condsd=matrix(NA,Nq,Nprofile)
+  for(j in 1:Nq){
+    for(p in 1:Nprofile){
+      omegaj=unlist(map(1:Ntime,~ystar[[.]][j,]))
+      Aconcat=do.call(rbind, replicate(Ntime, A, simplify=FALSE)) 
+      condsd[j,p]=sqrt(1/(t(Aconcat[,p])%*%(omegaj*Aconcat[,p])+1/(priorsd_beta[j,p]^2)))
+    }
+  }
+  condmean=matrix(NA,Nq,Nprofile)
+  for(j in 1:Nq){
+    for(p in 1:Nprofile){
+      omegaj=unlist(map(1:Ntime,~ystar[[.]][j,]))
+      zj=c(unlist(map(z,~.[j,])))
+      ztildej=zj-Aconcat[,-p]%*%beta_mat[j,-p]
+      condmean[j,p]=condsd[j,p]^2*t(Aconcat[,p])%*%(omegaj*ztildej)
+    }
+  }
+  return(list(mean=condmean,sd=condsd))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

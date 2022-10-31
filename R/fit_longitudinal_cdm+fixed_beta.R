@@ -13,7 +13,7 @@
 #' @importFrom mvtnorm rmvnorm
 #' @export
 
-sample_longitudinal=function(Ys,Xs,Qs,M,
+fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
                              priors=list(beta_prior=1,gamma_prior=1),
                              initparams=NULL,
                              fixed_beta=F){
@@ -36,7 +36,6 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       Nprofile=2^Nskill
       Ntransition=2^Ntime
       Nq=Nq_list[[1]]                    # new
-      single_delta=Q_to_delta(Qs[[1]])   # new
 
       profiles=map_dfr(1:Nprofile-1,
                        ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
@@ -45,7 +44,11 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       transitions=map_dfr(1:(2^Ntime)-1,
                           ~data.frame(t(rev(as.integer(intToBits(.))[1:Ntime]))))
 
-      delta_cat=do.call(rbind,map(Qs,Q_to_delta))
+      # delta_cat=do.call(rbind,map(Qs,Q_to_delta))
+      # single_delta=Q_to_delta(Qs[[1]])   
+      
+      if (fixed_beta) {delta = Q_to_delta(Qs[[1]]) } else {         # new
+                       delta = do.call(rbind,map(Qs,Q_to_delta))}   
 
       qt_map=unlist(map(1:length(Nq_list),~rep(.,Nq_list[[.]])))
     }
@@ -53,8 +56,8 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
 
     gen_init=T
     if(gen_init){
-      beta_mat=matrix(rnorm(Nprofile*Nq_total),Nq_total,Nprofile)*
-        delta_cat
+      beta_mat=matrix(rnorm(Nprofile*Nq),Nq,Nprofile)*
+        delta
       beta_mat[,1]=-abs(beta_mat[,1])
       beta_mat[,2]=abs(beta_mat[,2])
       beta_mat[,3]=abs(beta_mat[,3])
@@ -65,7 +68,9 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       gamma_list=initparams$gamma_list
     }
     # gamma_list=gamma_list_true
-    beta_vec=c(beta_mat[delta_cat==1])
+    
+    beta_vec = c(beta_mat[delta==1])
+    
     # beta_mat=true_params$beta_mat
     # gamma_list=gamma_list_true
     # alpha_mat=true_alpha
@@ -79,7 +84,6 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       }
     }
     alpha_mat=transitions_to_alpha(trans_mat,transitions)  
-    # print(mean(alpha_mat==true_alpha))
     alpha_vec=c(alpha_mat)
 
     #MCMC setup
@@ -93,7 +97,9 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
         set_names(sampnames)
       samples[1,]=c(beta_vec,unlist(gamma_list),alpha_vec)
 
-      Ljp=-Inf
+      #Enforce positivity in all but intercept, as is done in the paper
+      Ljp=matrix(0,Nq,Nprofile)
+      Ljp[,1]=-Inf
     }
     
     #################### Same beta over time ####################
@@ -106,14 +112,11 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       
         #sample alpha
         trans_probs=gamma_to_transprobs(gamma_list,Xs)
-        #Do this to avoid NA's:
-        theta[theta==1]=.99
+        theta[theta==1]=.99                                  #do this to avoid NA's:
         alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
+        trans_mat=alpha_to_transitions(alpha_mat,profiles)   #calculate new transitions
         # print(table(alpha_mat))
-        # print(mean(alpha_mat==true_alpha))
-      
-        #calculate new transitions
-        trans_mat=alpha_to_transitions(alpha_mat,profiles)
+        print(mean(alpha_mat==true_alpha))
       
         #sample ystar
         nct = matrix(NA,Nprofile,Ntime)
@@ -122,14 +125,7 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
             nct[c,t]=sum(alpha_mat[,t]==c)
           }
         }
-        ystar=map(1:Ntime,~matrix(NA,Nq,Nprofile))
-        for(t in 1:Ntime){
-          for(j in 1:Nq){
-            for(c in 1:Nprofile){
-              ystar[[t]][j,c]=rpg(h=max(nct[c,t],1),z=ltheta[j,c])
-            }
-          }
-        }
+        ystar=sample_ystar_fb(ltheta,nct) #*delta
       
         #sample beta
         kappa = map(1:Ntime,~matrix(NA,Nq,Nprofile))
@@ -141,30 +137,12 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
           }
         }
         z=map2(kappa,ystar,~.x/.y)
-        condsd=matrix(NA,Nq,Nprofile)
-        for(j in 1:Nq){
-          for(p in 1:Nprofile){
-            omegaj=unlist(map(1:Ntime,~ystar[[.]][j,]))
-            Aconcat=do.call(rbind, replicate(Ntime, A, simplify=FALSE)) 
-            condsd[j,p]=sqrt(1/(t(Aconcat[,p])%*%(omegaj*Aconcat[,p])+1/(priorsd_beta[j,p]^2)))
-          }
-        }
-        condmean=matrix(NA,Nq,Nprofile)
-        for(j in 1:Nq){
-          for(p in 1:Nprofile){
-            omegaj=unlist(map(1:Ntime,~ystar[[.]][j,]))
-            zj=c(unlist(map(z,~.[j,])))
-            ztildej=zj-Aconcat[,-p]%*%beta_mat[j,-p]
-            condmean[j,p]=condsd[j,p]^2*t(Aconcat[,p])%*%(omegaj*ztildej)
-          }
-        }
-        beta_post = list(mean=condmean,sd=condsd)
+        
+        beta_post=beta_gibbs_dist_fb(ystar,A,z,beta_mat,priorsd_beta)
         beta_mat=matrix(rtruncnorm(length(beta_post$mean),mean=c(beta_post$mean),
                                    sd=c(beta_post$sd),a=c(Ljp)),
-                        dim(beta_post$mean)[1],dim(beta_post$mean)[2])*single_delta
-        beta_vec=c(beta_mat[single_delta==1])
-        beta_mat=do.call(rbind, replicate(Ntime, beta_mat, simplify=FALSE)) 
-        beta_vec = rep(beta_vec, Ntime)
+                        dim(beta_post$mean)[1],dim(beta_post$mean)[2])*delta
+        beta_vec=c(beta_mat[delta==1])
         
         #sample gamma
         gamma_list=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma)
@@ -200,7 +178,7 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
           nct[c,t]=sum(alpha_mat[,t]==c)
         }
       }
-      ystar=sample_ystar(ltheta,nct,qt_map)#*delta_cat
+      ystar=sample_ystar(ltheta,nct,qt_map)#*delta
 
       #sample beta
       kappa = matrix(NA,Nq_total,Nprofile)
@@ -216,8 +194,8 @@ sample_longitudinal=function(Ys,Xs,Qs,M,
       # if(F){
       beta_post=beta_gibbs_dist(ystar,A,z,beta_mat,priorsd_beta)
       beta_mat=matrix(rtruncnorm(length(beta_mat),mean=c(beta_post$mean),sd=c(beta_post$sd),a=c(Ljp)),
-                      dim(beta_mat)[1],dim(beta_mat)[2])*delta_cat
-      beta_vec=c(beta_mat[delta_cat==1])
+                      dim(beta_mat)[1],dim(beta_mat)[2])*delta
+      beta_vec=c(beta_mat[delta==1])
 
 
       #sample gamma

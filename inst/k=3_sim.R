@@ -1,55 +1,55 @@
 #gen data
 rm(list = ls())
-setwd("~/Desktop/BayesianCDM-package_branch/")
+set.seed(10)
+setwd("~/CDM/")
 devtools::load_all()
 
 require(mvtnorm)
 require(truncnorm)
 require(tidyverse)
-devtools::load_all()
 
 
-M = 1000
-Nrespondents=200
+M = 3000
+Nrespondents=500
 Nskill=3
 Ntime=2
 k = 3
+Nprofile=2^Nskill
 # Qs=map(Nq_list,~profiles[sample(2^Nskill,.,replace=T),])
 Xbase=cbind(rep(1,Nrespondents),c(rep(0,Nrespondents/2),rep(1,Nrespondents/2)))
-Xs=build_Xlist_01(Xbase)
+Xs=build_Xlist_01(Xbase,Nskill,Ntime)
 
-Qs=list(matrix(c(rep(c(0,0,0),7),
-                   rep(c(0,0,1),7),
-                   rep(c(0,1,0),7),
-                   rep(c(1,0,0),7),
-                   rep(c(1,1,0),7),
-                   rep(c(1,0,1),7),
-                   rep(c(0,1,1),7),
-                   rep(c(1,1,1),7)), 56, 3, byrow=T),
-        matrix(c(rep(c(0,0,0),7),
-                 rep(c(0,0,1),7),
-                 rep(c(0,1,0),7),
-                 rep(c(1,0,0),7),
-                 rep(c(1,1,0),7),
-                 rep(c(1,0,1),7),
-                 rep(c(0,1,1),7),
-                 rep(c(1,1,1),7)), 56, 3, byrow=T)
-)
+q_rep = 2
+Q = matrix(c(rep(c(0,0,0),q_rep),
+             rep(c(0,0,1),q_rep),
+             rep(c(0,1,0),q_rep),
+             rep(c(1,0,0),q_rep),
+             rep(c(1,1,0),q_rep),
+             rep(c(1,0,1),q_rep),
+             rep(c(0,1,1),q_rep),
+             rep(c(1,1,1),q_rep)), q_rep*8, 3, byrow=T)
+Qs=list(Q,Q)
 
 
 Nq_list=map(Qs,~dim(.)[1])
+Nq = dim(Q)[1]
 
 # gamma_list=list(
 #
 # )
 
-delta_cat=do.call(rbind,map(Qs,Q_to_delta))
-true_params=generate_params(Nrespondents,Qs,Xs)
-Nq_total=sum(unlist(Nq_list))
+delta=Q_to_delta(Q)
+true_params=list()
 true_params$beta_mat=
- cbind(rnorm(Nq_total,-1.7,0.4),rnorm(Nq_total,2,0.4),rnorm(Nq_total,2,0.4),rnorm(Nq_total,2,0.4),
-       rnorm(Nq_total,-.7,0.4),rnorm(Nq_total,-.7,0.4),rnorm(Nq_total,-.7,0.4),rnorm(Nq_total,-.7,0.4))*
- delta_cat
+ cbind(rtruncnorm(Nq,mean=-2,sd=1.5,b=0),rtruncnorm(Nq,mean=3,sd=1.5,a=0),
+       rtruncnorm(Nq,mean=2,sd=1.5,a=0),rtruncnorm(Nq,mean=2,sd=1.5,a=0), # intercept + base
+       rtruncnorm(Nq,mean=1,sd=0.5,a=0),rtruncnorm(Nq,mean=1,sd=0.5,a=0),
+       rtruncnorm(Nq,mean=1,sd=0.5,a=0),rtruncnorm(Nq,mean=1,sd=0.5,a=0))*   # interactions
+ delta
+true_params$gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
+
+gamma_to_transprobs(true_params$gamma_list, Xs) 
+
 
 # a=c(.7,.05,.05,.2)
 # b=c(.2,.55,.05,.2)
@@ -58,20 +58,18 @@ true_params$beta_mat=
 # gamma_list_true=map(1:Nskill,~
 #   rbind(g1,g2),
 # )
-Xtmp=build_Xlist_01(rbind(c(1,0),c(1,1)))
-gamma_list_true=
-  list(list(c(-2,3),c(-1.5),c(-1.5)),
-       list(c(-2,3),c(-1.5),c(-1.5)),
-       list(c(-2,3),c(-1.5),c(-1.5)))
-gamma_list=gamma_list_true
-true_params$gamma_list=gamma_list
+# Xtmp=build_Xlist_01(rbind(c(1,0),c(1,1)),Nskill,Ntime)
+# gamma_list_true=
+#   list(list(c(-2,3),c(-1.5),c(-1.5)),
+#        list(c(-2,3),c(-1.5),c(-1.5)),
+#        list(c(-2,3),c(-1.5),c(-1.5)))
+# gamma_list=gamma_list_true
+# true_params$gamma_list=gamma_list
+# 
+# gamma_to_transprobs(gamma_list,Xtmp)
 
-gamma_to_transprobs(gamma_list,Xtmp)
-
-Ntime=2
-Nprofile=2^Nskill
 group_is=Xs[[1]][[1]][,2]+1
-alpha_sampdf=sample_alpha_from_gamma(Nrespondents,Ntime,gamma_list,Xs)%>%
+alpha_sampdf=sample_alpha_from_gamma(Nrespondents,Ntime,true_params$gamma_list,Xs)%>%
   data.frame()%>%
   set_names(paste0('a',1:Ntime))%>%
   mutate(group=group_is)%>%
@@ -93,10 +91,31 @@ if(F){
 
 priors=list(beta_prior=500,gamma_prior=.1)
 
-Ys=generate_data(Nrespondents,Nq_list,true_params$beta_mat,true_alpha)
-sampler_out=sample_longitudinal(Ys,Xs,Qs,M,
+# simulate data
+Nprofile=dim(true_params$beta_mat)[2]
+profiles=map_dfr(1:Nprofile-1,
+                 ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
+A=model.matrix(data=profiles,as.formula(paste0('~', paste0(names(profiles),collapse='*'))))
+
+ltheta=true_params$beta_mat%*%t(A)
+theta=logistic(ltheta)
+Nq_total=sum(unlist(Nq_list))
+qt_map=unlist(map(1:length(Nq_list),~rep(.,Nq_list[[.]])))
+
+Ys=map(Nq_list,~matrix(NA,Nrespondents,.))
+for (t in 1:Ntime){
+  for(i in 1:Nrespondents){
+    for(j in 1:Nq){
+      p=theta[j,true_alpha[i,t]]
+      Ys[[t]][i,j]=sample(c(0,1),1,prob=c(1-p,p))
+    }
+  }
+}
+
+sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,M,
                                 initparams = NULL,
-                                priors=list(beta_prior=500,gamma_prior=1))
+                                priors=list(beta_prior=500,gamma_prior=1),
+                                fixed_beta = TRUE)
 
 
 ################################################################################
@@ -104,7 +123,7 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,M,
 
 
 {
-  delta_cat=do.call(rbind,map(Qs,Q_to_delta))
+  # delta=do.call(rbind,map(Qs,Q_to_delta))
   beta_mat=sampler_out$samples%>%
     dplyr::select(contains('beta'))%>%
     apply(2,mean)
@@ -112,18 +131,22 @@ sampler_out=sample_longitudinal(Ys,Xs,Qs,M,
     dplyr::select(contains('beta'))%>%
     apply(2,sd)
   pbeta=data.frame(postmean=beta_mat,
-                   betatrue=true_params$beta_mat[delta_cat==1],
+                   betatrue=true_params$beta_mat[delta==1],
                    betasd=beta_sd)%>%
     filter(postmean<8)%>%
     mutate(i=1:n())%>%
     ggplot()+
     geom_point(aes(x=i,y=postmean,col='postmean'))+
-    # geom_errorbar(aes(x=i,ymin=postmean-2*betasd,
-    #                   ymax=postmean+2*betasd,col='postmean'))+
-    geom_point(aes(x=i,y=betatrue,col='betatrue')) + 
-    coord_cartesian(ylim = c(-5, 5), xlim = c(0,224)) 
+    geom_errorbar(aes(x=i,ymin=postmean-2*betasd,
+                      ymax=postmean+2*betasd,col='postmean'))+
+    geom_point(aes(x=i,y=betatrue,col='betatrue'))  
+    # coord_cartesian(ylim = c(-5, 5), xlim = c(0,224)) 
   pbeta
 }
+
+pbeta
+plot(sampler_out$samples[,50], type = "l")
+
 
 {
   
