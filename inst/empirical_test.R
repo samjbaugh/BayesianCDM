@@ -3,7 +3,7 @@
 #  Empirical Dataset from Madison et al., 2018
 #
 
-{
+
   require(mvtnorm)
   require(truncnorm)
   require(tidyverse)
@@ -35,28 +35,33 @@
   Nprofile=2^Nskill
   
   runtime = system.time({
-  sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,5000,
+  sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,3000,
                                   initparams = NULL,
-                                  priors=list(beta_prior=500,gamma_prior=1),
+                                  priors=list(beta_prior=2,gamma_prior=2),
                                   fixed_beta = T)})
-}
 
 
-###################### OUTPUT ###################### 
 
+#################################################################################################################################################################
+  
+# rm burn-in
+sampler_out$samples_burned_in = sampler_out$samples[500:3000,]
+
+  
+  
 {
   delta_cat=do.call(rbind,map(Qs,Q_to_delta))
-  beta_samples = sampler_out$samples%>%dplyr::select(contains('beta'))
-  beta_mat=sampler_out$samples%>%
+  beta_samples = sampler_out$samples_burned_in%>%dplyr::select(contains('beta'))
+  beta_mat=sampler_out$samples_burned_in%>%
     dplyr::select(contains('beta'))%>%
     apply(2,mean)
-  beta_sd=sampler_out$samples%>%
+  beta_sd=sampler_out$samples_burned_in%>%
     dplyr::select(contains('beta'))%>%
     apply(2,sd)
   pbeta=data.frame(postmean=beta_mat,
                    # betatrue=true_params$beta_mat[delta_cat==1],
                    betasd=beta_sd)%>%
-    filter(postmean<8)%>%
+    # filter(postmean<8)%>%
     mutate(i=1:n())%>%
     ggplot()+
     geom_point(aes(x=i,y=postmean,col='postmean'))+
@@ -68,30 +73,29 @@
 }
 
 ##### beta point estimates
-plot(beta_mat[1:21], ylim = c(-8,12), xlab = "Questions", ylab = "Value")
+plot(beta_mat[1:21], ylim = c(-6,6), xlab = "Item Number", ylab = "Estimated Value")
 beta_order = c(1,13,14,17,2,3,9,10,11,12,4,5,6,7,8,15,16,18,19,20,21)
 points(beta_mat[22:42][order(beta_order)], pch = 20)
 
-plot(sampler_out$samples[,39], type = "l")
-plot(sampler_out$samples$`gamma_vec[8]`, type = "l")
-
-full_sampler_out = sampler_out
-sampler_out = sampler_out$samples[1000:5000,]
+# plot(sampler_out$samples_burned_in[,39], type = "l")
+# plot(sampler_out$samples_burned_in[,19], type = "l")
+# 
+# plot(sampler_out$samples_burned_in$`gamma_vec[8]`, type = "l")
 
 
 ##### conditional transition probabilities
-gamma_samples = sampler_out%>%dplyr::select(contains('gamma'))
+gamma_samples = sampler_out$samples_burned_in%>%dplyr::select(contains('gamma'))
 gamma_means = colMeans(gamma_samples)
-gamma_mean = list(list(array(c(gamma_means[1], gamma_means[2]), dim = c(1,2)),
+gamma_mean = list(list(array(c(gamma_means[1], gamma_means[2]), dim = c(2,1)),
                        array(gamma_means[3], dim = c(1,1)),
                        array(gamma_means[4], dim = c(1,1))),
-                  list(array(c(gamma_means[5], gamma_means[6]), dim = c(1,2)),
+                  list(array(c(gamma_means[5], gamma_means[6]), dim = c(2,1)),
                        array(gamma_means[7], dim = c(1,1)),
                        array(gamma_means[8], dim = c(1,1))),
-                  list(array(c(gamma_means[9], gamma_means[10]), dim = c(1,2)),
+                  list(array(c(gamma_means[9], gamma_means[10]), dim = c(2,1)),
                        array(gamma_means[11], dim = c(1,1)),
                        array(gamma_means[12], dim = c(1,1))),
-                  list(array(c(gamma_means[13], gamma_means[14]), dim = c(1,2)),
+                  list(array(c(gamma_means[13], gamma_means[14]), dim = c(2,1)),
                        array(gamma_means[15], dim = c(1,1)),
                        array(gamma_means[16], dim = c(1,1))))
 
@@ -103,7 +107,7 @@ for (i in 1:Nskill)
   post_probs1 = sum(post_probs[[i]][3:4])
   cond_post_probs[[i]] = post_probs[[i]] / c(post_probs0, post_probs0, post_probs1, post_probs1)
 }
-cond_post_probs
+round(cond_post_probs,3)
 
 
 gamma_postmean=sampler_out$samples%>%
@@ -119,7 +123,6 @@ gamma_postsd=sampler_out$samples%>%
 
 
 {
-  
   alpha_post=sampler_out$samples%>%
     dplyr::select(starts_with('alpha'))
   # M=20
@@ -170,11 +173,12 @@ gamma_postsd=sampler_out$samples%>%
   
   trans_mat=alpha_to_transitions(true_alpha,profiles)
   priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
-  tmp=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
-  plotdf=data.frame(gamma_true=unlist(gamma_list_true),
+  # tmp=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
+  plotdf=data.frame(
+                    # gamma_true=unlist(gamma_list_true),
                     postmean=gamma_postmean,
                     postsd=gamma_postsd,
-                    pmean=unlist(tmp$gamma_mean),
+                    # pmean=unlist(tmp$gamma_mean),
                     psd=sqrt(unlist(map(tmp$gamma_var,~map(.,diag)))),
                     i=1:length(gamma_postmean))%>%
     mutate(skill=c(rep(1,4),rep(2,4)),i=c(1:4,1:4))

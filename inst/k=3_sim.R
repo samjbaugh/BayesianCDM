@@ -1,6 +1,6 @@
 #gen data
 rm(list = ls())
-set.seed(10)
+set.seed(100)
 setwd("~/CDM/")
 devtools::load_all()
 
@@ -10,24 +10,55 @@ require(tidyverse)
 
 
 M = 3000
-Nrespondents=500
+Nrespondents=200
 Nskill=3
 Ntime=2
 k = 3
 Nprofile=2^Nskill
-# Qs=map(Nq_list,~profiles[sample(2^Nskill,.,replace=T),])
+profiles=map_dfr(1:Nprofile-1,
+                 ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
+
+# Standard one-intervention covariate
 Xbase=cbind(rep(1,Nrespondents),c(rep(0,Nrespondents/2),rep(1,Nrespondents/2)))
 Xs=build_Xlist_01(Xbase,Nskill,Ntime)
 
-q_rep = 2
-Q = matrix(c(rep(c(0,0,0),q_rep),
-             rep(c(0,0,1),q_rep),
-             rep(c(0,1,0),q_rep),
-             rep(c(1,0,0),q_rep),
-             rep(c(1,1,0),q_rep),
-             rep(c(1,0,1),q_rep),
-             rep(c(0,1,1),q_rep),
-             rep(c(1,1,1),q_rep)), q_rep*8, 3, byrow=T)
+# Complex covariates 
+# Intervention = c(rep(0,Nrespondents/2),rep(1,Nrespondents/2))
+# Education = sample(0:3, Nrespondents, replace=T)
+# Income = rnorm(Nrespondents, 0, 5)
+# Ethnicity = sample(0:5, Nrespondents, replace=T)
+# Xbase=cbind(rep(1,Nrespondents),
+#             Intervention,
+#             Education,
+#             Income,
+#             Ethnicity)
+# Xs=build_Xlist_01(Xbase,Nskill,Ntime)
+
+
+
+profile_list=list()
+for(ii in 1:(2^Nskill)){
+  tmp=rep(NA,Nskill)
+  for(jj in 1:Nskill){
+    tmp[Nskill-jj+1]=((ii-1)%/%(2^(jj-1)))%%2
+  }
+  profile_list[[ii]]=rev(tmp)
+}
+Q=do.call(rbind,lapply(profile_list[-1],function(x)
+  do.call(rbind,lapply(1:ceiling(16/(Nprofile-1)),function(i) x))))
+# Q=map(Nq_list,~profiles[sample(2^Nskill,Nq_list,replace=T),])   # random Q
+
+
+
+# q_rep = 3
+# Q = matrix(c(rep(c(0,0,0),q_rep),
+#              rep(c(0,0,1),q_rep),
+#              rep(c(0,1,0),q_rep),
+#              rep(c(1,0,0),q_rep),
+#              rep(c(1,1,0),q_rep),
+#              rep(c(1,0,1),q_rep),
+#              rep(c(0,1,1),q_rep),
+#              rep(c(1,1,1),q_rep)), q_rep*8, 3, byrow=T)
 Qs=list(Q,Q)
 
 
@@ -46,7 +77,7 @@ true_params$beta_mat=
        rtruncnorm(Nq,mean=1,sd=0.5,a=0),rtruncnorm(Nq,mean=1,sd=0.5,a=0),
        rtruncnorm(Nq,mean=1,sd=0.5,a=0),rtruncnorm(Nq,mean=1,sd=0.5,a=0))*   # interactions
  delta
-true_params$gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
+true_params$gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2],sd=0.3)))
 
 gamma_to_transprobs(true_params$gamma_list, Xs) 
 
@@ -89,10 +120,8 @@ if(F){
   gamma_to_transprobs(gamma_out,Xtmp)
 }
 
-priors=list(beta_prior=500,gamma_prior=.1)
 
 # simulate data
-Nprofile=dim(true_params$beta_mat)[2]
 profiles=map_dfr(1:Nprofile-1,
                  ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
 A=model.matrix(data=profiles,as.formula(paste0('~', paste0(names(profiles),collapse='*'))))
@@ -112,45 +141,49 @@ for (t in 1:Ntime){
   }
 }
 
+
+priors=list(beta_prior=2.5,gamma_prior=1)
 sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,M,
                                 initparams = NULL,
-                                priors=list(beta_prior=500,gamma_prior=1),
+                                priors=priors,
                                 fixed_beta = TRUE)
 
 
-################################################################################
+#################################################################################################################################################################
 
+# rm burn-in
+sampler_out$samples_burned_in = sampler_out$samples[500:M,]
 
 
 {
   # delta=do.call(rbind,map(Qs,Q_to_delta))
-  beta_mat=sampler_out$samples%>%
+  beta_mat=sampler_out$samples_burned_in%>%
     dplyr::select(contains('beta'))%>%
     apply(2,mean)
-  beta_sd=sampler_out$samples%>%
+  beta_sd=sampler_out$samples_burned_in%>%
     dplyr::select(contains('beta'))%>%
     apply(2,sd)
   pbeta=data.frame(postmean=beta_mat,
                    betatrue=true_params$beta_mat[delta==1],
                    betasd=beta_sd)%>%
-    filter(postmean<8)%>%
+    # filter(postmean<8)%>%
     mutate(i=1:n())%>%
     ggplot()+
     geom_point(aes(x=i,y=postmean,col='postmean'))+
     geom_errorbar(aes(x=i,ymin=postmean-2*betasd,
                       ymax=postmean+2*betasd,col='postmean'))+
     geom_point(aes(x=i,y=betatrue,col='betatrue'))  
-    # coord_cartesian(ylim = c(-5, 5), xlim = c(0,224)) 
+    # coord_cartesian(ylim = c(-5, 10))
   pbeta
 }
 
-pbeta
-plot(sampler_out$samples[,50], type = "l")
+
+plot(sampler_out$samples_burned_in[,32], type = "l")
 
 
 {
   
-  alpha_post=sampler_out$samples%>%
+  alpha_post=sampler_out$samples_burned_in%>%
     dplyr::select(starts_with('alpha'))
   # M=20
   # data.frame(a=as.numeric(alpha_post[M,]),ii=1:(Nrespondents*Ntime))%>%
@@ -190,18 +223,19 @@ plot(sampler_out$samples[,50], type = "l")
 }
 # scale_y_log10()
 
+
 {
-  gamma_postmean=sampler_out$samples%>%
+  gamma_postmean=sampler_out$samples_burned_in%>%
     dplyr::select(contains('gamma'))%>%
     apply(2,mean)
-  gamma_postsd=sampler_out$samples%>%
+  gamma_postsd=sampler_out$samples_burned_in%>%
     dplyr::select(contains('gamma'))%>%
     apply(2,sd)
   
   trans_mat=alpha_to_transitions(true_alpha,profiles)
   priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
-  tmp=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
-  plotdf=data.frame(gamma_true=unlist(gamma_list_true),
+  tmp=sample_gamma(true_params$gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
+  plotdf=data.frame(gamma_true=unlist(true_params$gamma_list),
                     postmean=gamma_postmean,
                     postsd=gamma_postsd,
                     pmean=unlist(tmp$gamma_mean),
