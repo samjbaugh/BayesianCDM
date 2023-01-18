@@ -88,7 +88,9 @@ fit_longitudinal_cdm=function(Ys,Xs,Qs,M,
         set_names(sampnames)
       samples[1,]=c(beta_vec,unlist(gamma_list),alpha_vec)
 
-      Ljp=-Inf
+      #Enforce positivity in all but intercept, as is done in the paper
+      Ljp=matrix(0,Nq,Nprofile)
+      Ljp[,1]=-Inf
     }
 
 
@@ -99,14 +101,11 @@ fit_longitudinal_cdm=function(Ys,Xs,Qs,M,
 
       #sample alpha
       trans_probs=gamma_to_transprobs(gamma_list,Xs)
-      print(mean(alpha_mat==true_alpha))
-
-      #Do this to avoid NA's:
-      theta[theta==1]=.99
+      theta[theta==1]=.99       #do this to avoid NA's:
       alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
-      print(table(alpha_mat))
-      #calculate new transitions
-      trans_mat=alpha_to_transitions(alpha_mat,profiles)
+      trans_mat=alpha_to_transitions(alpha_mat,profiles)    #calculate new transitions
+      # print(table(alpha_mat))
+      # print(mean(alpha_mat==true_alpha))
 
       #sample ystar
       nct = matrix(NA,Nprofile,Ntime)
