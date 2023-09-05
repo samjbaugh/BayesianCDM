@@ -1,4 +1,22 @@
 #'  Build design matrix
+#'  with no covariates
+#'
+#' @description Add detail
+#' @param Xbase Design matrix for (0,1) for each skill
+#' @param Nskill Nskill
+#' @param Ntime Ntime
+build_Xlist=function(Xbase,Nskill,Ntime){
+  X1=matrix(1,dim(Xbase)[1],1)
+  retval=map(1:Nskill,list)
+  for(i in 1:Nskill){
+    for(j in 1:(2^Ntime-1)){
+      retval[[i]][[j]]=X1
+    }
+  }
+  retval
+}
+
+#'  Build design matrix
 #'  with only 0->1 covariates
 #'
 #' @description Add detail
@@ -56,6 +74,24 @@ transitions_to_alpha=function(trans_mat,transitions){
     retval[i,]=t(tmpmat)%*%v+1
   }
   return(retval)
+}
+
+#'  Build design matrix
+#'  with full transition covariates
+#'
+#' @description Add detail
+#' @param Xbase Design matrix for (0,1) for each skill
+#' @param Nskill Nskill
+#' @param Ntime Ntime
+build_Xlist_full=function(Xbase,Nskill,Ntime){
+  X1=matrix(1,dim(Xbase)[1],1)
+  retval=map(1:Nskill,list)
+  for(i in 1:Nskill){
+    retval[[i]][[1]]=Xbase
+    retval[[i]][[2]]=Xbase
+    retval[[i]][[3]]=Xbase
+  }
+  retval
 }
 
 #'  Convert alpha matrix to transition matrix

@@ -54,7 +54,6 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
     }
 
 
-    gen_init=T
     if(gen_init){
       beta_mat=matrix(rnorm(Nprofile*Nq),Nq,Nprofile)*
         delta
@@ -101,9 +100,12 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       #Enforce positivity in all but intercept, as is done in the paper
       Ljp=matrix(0,Nq,Nprofile)
       Ljp[,1]=-5
+      Ninteractions= ncol(delta)-ncol(Q)-1
+      Ljp[,(Nprofile-Ninteractions+1):Nprofile]=-5
     }
     
     #################### Same beta over time ####################
+    theta_list = list()
     if (fixed_beta)
     {
       for(m in 2:M){
@@ -151,6 +153,8 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         gamma_list=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma)
         
         samples[m,]=c(beta_vec,unlist(gamma_list),alpha_mat)
+        
+        if(m>2000){theta_list[[m-2000]]=theta}
       }
       
 
@@ -205,6 +209,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       gamma_list=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma)
 
       samples[m,]=c(beta_vec,unlist(gamma_list),alpha_mat)
+      if(m>2000){theta_list[[m-2000]]=theta}
     }
     }
 
@@ -214,7 +219,8 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
                 beta_post=beta_vec,
                 gamma_post=gamma_post,
                 alpha_mat=alpha_mat,
-                prof_correct_vec = prof_correct_vec)
+                prof_correct_vec = prof_correct_vec,
+                theta_list = theta_list)
 
   return(retval)
 }
