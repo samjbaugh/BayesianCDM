@@ -160,7 +160,7 @@ apply_gamma_X=function(gamma_list,Xs,f){
   for(k in 1:Nskill){
     a=do.call(cbind,map(1:(Ntransition-1),~Xs[[k]][[.]]%*%gamma_list[[k]][[.]]))
     tmp=cbind(rep(0,Nr),a)
-    retval[[k]]=t(apply(tmp,1,f))
+    retval[[k]]=t(apply(tmp,1,f))%>%{replace(.,is.infinite(.),9e9)}
   }
   retval
 }
@@ -258,7 +258,7 @@ sample_gamma=function(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
   Nrespondents=dim(Xs[[1]][[1]])[1]
   Ntransition=length(gamma_list[[1]])+1
   Ntime=log2(Ntransition)
-  
+
   eta=apply_gamma_X(gamma_list,Xs,function(x) x-log(sum(exp(x))-exp(x)))
   tstar=map(1:Nskill,~matrix(NA,Nrespondents,2^Ntime))
   for(i in 1:Nskill){
@@ -266,14 +266,14 @@ sample_gamma=function(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
       tstar[[i]][,j]=map_dbl(eta[[i]][,j],~rpg(num=1,h=1,z=.))
     }
   }
-  
+
   kappa=map(1:Nskill,~matrix(NA,Nrespondents,Ntransition))
   for(i in 1:Nskill){
     for(j in 1:Ntransition){
       kappa[[i]][,j]=(trans_mat[,i]==j)-1/2
     }
   }
-  
+
   C=apply_gamma_X(gamma_list,Xs,function(x) log(sum(exp(x))-exp(x)))
   gamma_var=map(1:Nskill,list)
   for(i in 1:Nskill){
@@ -307,7 +307,7 @@ sample_gamma=function(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
 #       condsd[j,p]=sqrt(1/(t(A[,p])%*%(ystar[j,]*A[,p])+1/(priorsd_beta[j,p]^2)))
 #     }
 #   }
-# 
+#
 #   condmean=matrix(NA,Nq_total,Nprofile)
 #   for(j in 1:Nq_total){
 #     for(p in 1:Nprofile){
@@ -331,7 +331,7 @@ logistic=function(x) {
 
 
 
-################## fixed_beta functions ################## 
+################## fixed_beta functions ##################
 
 #'  Sample polya-gamma auxillary variables (fixed_beta)
 #'
@@ -368,7 +368,7 @@ beta_gibbs_dist_fb=function(ystar,A,z,beta_mat,priorsd_beta){
   for(j in 1:Nq){
     for(p in 1:Nprofile){
       omegaj=unlist(map(1:Ntime,~ystar[[.]][j,]))
-      Aconcat=do.call(rbind, replicate(Ntime, A, simplify=FALSE)) 
+      Aconcat=do.call(rbind, replicate(Ntime, A, simplify=FALSE))
       condsd[j,p]=sqrt(1/(t(Aconcat[,p])%*%(omegaj*Aconcat[,p])+1/(priorsd_beta[j,p]^2)))
     }
   }

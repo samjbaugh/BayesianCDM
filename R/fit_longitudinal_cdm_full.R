@@ -21,7 +21,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
 
     # print(paste('gen_init',gen_init))
     # print('asfdasdf')
-    # priors=list(beta_prior=500,gamma_prior=1)
+    priors=list(beta_prior=500,gamma_prior=1)
     priorsd_beta=matrix(priors$beta_prior,Nq_total,Nprofile)
     priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
 
@@ -45,10 +45,10 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
                           ~data.frame(t(rev(as.integer(intToBits(.))[1:Ntime]))))
 
       # delta_cat=do.call(rbind,map(Qs,Q_to_delta))
-      # single_delta=Q_to_delta(Qs[[1]])   
-      
+      # single_delta=Q_to_delta(Qs[[1]])
+
       if (fixed_beta) {delta = Q_to_delta(Qs[[1]]) } else {         # new
-                       delta = do.call(rbind,map(Qs,Q_to_delta))}   
+                       delta = do.call(rbind,map(Qs,Q_to_delta))}
 
       qt_map=unlist(map(1:length(Nq_list),~rep(.,Nq_list[[.]])))
     }
@@ -57,34 +57,30 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
     if(gen_init){
       beta_mat=matrix(rnorm(Nprofile*Nq),Nq,Nprofile)*
         delta
-      beta_mat[,1]=-abs(beta_mat[,1])
-      beta_mat[,2]=abs(beta_mat[,2])
-      beta_mat[,3]=abs(beta_mat[,3])
       gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
     }else{
-      # initparams=true_params
       beta_mat=initparams$beta_mat
       gamma_list=initparams$gamma_list
     }
     # gamma_list=gamma_list_true
-    
+
     beta_vec = c(beta_mat[delta==1])
-    
+
     # beta_mat=true_params$beta_mat
     # gamma_list=gamma_list_true
     # alpha_mat=true_alpha
     gamma_vec=unlist(gamma_list)
 
-    trans_probs=gamma_to_transprobs(gamma_list,Xs)          # logistic(psi) 
+    trans_probs=gamma_to_transprobs(gamma_list,Xs)          # logistic(psi)
     trans_mat=matrix(NA,Nrespondents,Nskill)                # rho
     for(i in 1:Nrespondents){
       for(j in 1:Nskill){
         trans_mat[i,j]=sample(1:(2^Ntime),1,prob=trans_probs[[j]][i,])
       }
     }
-    alpha_mat=transitions_to_alpha(trans_mat,transitions)  
+    alpha_mat=transitions_to_alpha(trans_mat,transitions)
     alpha_vec=c(alpha_mat)
-    prof_correct_vec = c() 
+    prof_correct_vec = c()
 
     #MCMC setup
     {
@@ -103,7 +99,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       Ninteractions= ncol(delta)-ncol(Q)-1
       Ljp[,(Nprofile-Ninteractions+1):Nprofile]=-5
     }
-    
+
     #################### Same beta over time ####################
     theta_list = list()
     if (fixed_beta)
@@ -112,7 +108,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         print(m)
         ltheta=beta_mat%*%t(A)
         theta=logistic(ltheta)
-      
+
         #sample alpha
         trans_probs=gamma_to_transprobs(gamma_list,Xs)
         theta[theta==1]=.99                                  #do this to avoid NA's:
@@ -122,7 +118,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         # prof_correct = mean(alpha_mat==true_alpha)
         # prof_correct_vec = c(prof_correct_vec, prof_correct)
         # print(prof_correct)
-      
+
         #sample ystar
         nct = matrix(NA,Nprofile,Ntime)
         for(c in 1:Nprofile){
@@ -131,7 +127,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
           }
         }
         ystar=sample_ystar_fb(ltheta,nct) #*delta
-      
+
         #sample beta
         kappa = map(1:Ntime,~matrix(NA,Nq,Nprofile))
         for(t in 1:Ntime){
@@ -142,25 +138,25 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
           }
         }
         z=map2(kappa,ystar,~.x/.y)
-        
+
         beta_post=beta_gibbs_dist_fb(ystar,A,z,beta_mat,priorsd_beta)
         beta_mat=matrix(rtruncnorm(length(beta_post$mean),mean=c(beta_post$mean),
                                    sd=c(beta_post$sd),a=c(Ljp)),
                         dim(beta_post$mean)[1],dim(beta_post$mean)[2])*delta
         beta_vec=c(beta_mat[delta==1])
-        
+
         #sample gamma
         gamma_list=sample_gamma(gamma_list,trans_mat,Xs,priorsd_gamma)
-        
+
         samples[m,]=c(beta_vec,unlist(gamma_list),alpha_mat)
-        
+
         if(m>2000){theta_list[[m-2000]]=theta}
       }
-      
+
 
     } else {
-      
-      
+
+
     #################### Varying beta over time ####################
     for(m in 2:M){
       print(m)
@@ -200,7 +196,10 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
 
       # if(F){
       beta_post=beta_gibbs_dist(ystar,A,z,beta_mat,priorsd_beta)
-      beta_mat=matrix(rtruncnorm(length(beta_mat),mean=c(beta_post$mean),sd=c(beta_post$sd),a=c(Ljp)),
+      beta_mat=matrix(rtruncnorm(length(beta_mat),
+                                 mean=c(beta_post$mean),
+                                 sd=c(beta_post$sd),
+                                 a=c(Ljp)),
                       dim(beta_mat)[1],dim(beta_mat)[2])*delta
       beta_vec=c(beta_mat[delta==1])
 
