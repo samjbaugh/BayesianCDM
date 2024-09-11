@@ -10,8 +10,8 @@ se_int = c(.17, .10, .25, .13, .14, .09, .51, .08, .11, .28, .20, .20,
            .12, .27, .12, .11, .38, .22, 1.43, .18, .16)
 se_me = c(.18, .15, .26, .15, .24, .24, .52, .12, .15, .27, .29, .20, .18, .29, .19, .18, .39, .42, 1.43, .18, .20)
 
-plot(int, ylim = c(-5,5), xlab = "Item Number", ylab = "Estimated Value")
-points(me, pch = 20)
+# plot(int, ylim = c(-5,5), xlab = "Item Number", ylab = "Estimated Value")
+# points(me, pch = 20)
 
 
 plotdf = data.frame(int,me,i=1:21)
@@ -22,7 +22,8 @@ ggplot(plotdf)+
   geom_errorbar(aes(x=i,ymin=int-2*se_int, ymax=int+2*se_int,col='Intercepts')) +
   geom_errorbar(aes(x=i,ymin=me-2*se_me, ymax=me+2*se_me,col='Main Effects')) +
   coord_cartesian(ylim = c(-6.5, 7)) +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        text = element_text(size = 17)) +
   xlab("Item Numbers") +
   ylab(expression(Beta ~ "Estimated Value"))
 

@@ -115,7 +115,8 @@ par(mfrow = c(1,1))
       geom_errorbar(aes(x=i,ymin=me-2*me_sd, ymax=me+2*me_sd,col='Main Effects')) +
       # geom_hline(yintercept=0, col = "dodgerblue", size = 1.5) +
       coord_cartesian(xlim = c(0,21), ylim = c(-6.5, 7)) +
-      theme(legend.position = "none") +
+      theme(legend.position = "none",
+            text = element_text(size = 17)) +
       xlab("Item Number") +
       ylab(expression(Beta ~ "Estimated Value"))
     # +geom_point(aes(x=i,y=betatrue,col='betatrue'))
@@ -250,6 +251,32 @@ ggplot(resp_correct, aes(Prop))+
   xlab("Proportion Matching") +
   ylab("Respondent Count")
 
+# By questions (prob correct instead of prob matching):
+true_byq = map(Ys, ~colMeans(.))
+pred_qprob = map(pred_data, ~map(.,~colMeans(.)))
+pred_byq = list(t(sapply(1:1000, function(x) pred_qprob[[x]][[1]])),
+                t(sapply(1:1000, function(x) pred_qprob[[x]][[2]])))
+#time1
+ggplot(data.frame(Question = rep(1:21,each=1000), Probability = c(pred_byq[[1]]), 
+                  True = rep(true_byq[[1]],each=1000)), 
+       aes(x=Question, y=Probability, group=Question)) +
+  geom_boxplot(outlier.size=.05) +
+  geom_point(aes(x=Question, y=True),col="red") +
+  ylim(0,0.8) +
+  ggtitle("Time 1") +
+  theme(plot.title = element_text(colour = "steelblue", face = "bold", family = "Helvetica"),
+        text = element_text(size = 17))
+#time2
+ggplot(data.frame(Question = rep(1:21,each=1000), Probability = c(pred_byq[[2]]), 
+                  True = rep(true_byq[[2]],each=1000)), 
+       aes(x=Question, y=Probability, group=Question)) +
+  geom_boxplot(outlier.size=.05) +
+  geom_point(aes(x=Question, y=True),col="red") +
+  ylim(0,0.8) +
+  ggtitle("Time 2") +
+  theme(plot.title = element_text(colour = "steelblue", face = "bold", family = "Helvetica"),
+        text = element_text(size = 17))
+
 
 
 {
@@ -326,7 +353,8 @@ ggplot(resp_correct, aes(Prop))+
                               expression(atop(NA, atop(1%->%0,"Intervention"))),
                               expression(atop(NA, atop(1%->%1,"Intercept"))))) +
     facet_grid(~factor(skill, levels=c("RPR","MD","NF","GG"))) +
-    theme(legend.position = "none") +
+    theme(legend.position = "none",
+          text = element_text(size = 17)) +
     xlab("") +
     ylab(expression(Gamma ~ "Estimated Value"))
   pgamma

@@ -247,10 +247,12 @@ ggplot(data.frame(beta.post=c(beta_mat), q=rep(1:sum(delta), each = Nsims),
   geom_point(aes(x=q ,y=beta.true, col=term), size=.7)+  
   geom_boxplot(aes(y=beta.post, x=q, group=q, col = term), outlier.size=0.05,
                fill = "white", position="identity", alpha=.2, width=1, size=0.4)+
-  theme(legend.position = c(.85,.15),
+  theme(legend.position = c(.15,.8),
         legend.background = element_rect(fill="linen",
                                          linewidth=0.5, linetype="solid", 
-                                         colour ="white"))+
+                                         colour ="white"),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17))+
   xlab("") +
   ylab(expression(Beta ~"Value")) +
   labs(color='Posterior Distributions \n+ True Values:') 
@@ -258,52 +260,28 @@ ggplot(data.frame(beta.post=c(beta_mat), q=rep(1:sum(delta), each = Nsims),
 
 
 ### Gamma posteriors
-# no covs
 plotdf=data.frame(gamma_post=c(gamma_post),
                   gamma_true=rep(unlist(true_params$gamma_list),each=Nsims),
                   i=1:length(c(gamma_post)))%>%
-  mutate(skill=c(rep("Skill 1",11*Nsims),rep("Skill 2",11*Nsims),rep("Skill 3",11*Nsims)),
-         i=factor(rep(c(1:11,1:11,1:11),each=Nsims)), q=rep(1:33,each=Nsims))
-# with covs
-plotdf=data.frame(gamma_post=c(gamma_post),
-                  gamma_true=rep(unlist(true_params$gamma_list),each=Nsims),
-                  i=1:length(c(gamma_post)))%>%
-  mutate(skill=c(rep("Skill 1",6*Nsims),rep("Skill 2",6*Nsims),rep("Skill 3",6*Nsims)),
-         i=factor(rep(c(1:6,1:6,1:6),each=Nsims)), q=rep(1:18,each=Nsims))
+  mutate(skill=c(rep("Attribute 1",4*Nsims),rep("Attribute 2",4*Nsims),rep("Attribute 3",4*Nsims)),
+         i=factor(rep(c(1:4,1:4,1:4),each=Nsims)), q=rep(1:12,each=Nsims))
 # ggplot
 ggplot(plotdf)+
   geom_boxplot(aes(y=gamma_post, x=i, group=q, col='Posterior'), outlier.size=0,
                fill = "white", position="identity", alpha=.5)+  
   geom_point(aes(x=i,y=gamma_true,col='True'))+
-  # scale_x_discrete(guide=guide_axis(angle = 90),
-  #                  labels=c(expression(atop(NA, atop(0%->%1,"Intercept"))),
-  #                           expression(atop(NA, atop(0%->%1,"Intervention"))),
-  #                           expression(atop(NA, atop(0%->%1,"Covariate 1"))),
-  #                           expression(atop(NA, atop(0%->%1,"Covariate 2"))),
-  #                           expression(atop(NA, atop(1%->%0,"Intercept"))),
-  #                           expression(atop(NA, atop(1%->%1,"Intercept")))))+
-  # scale_x_discrete(guide=guide_axis(angle = 90),
-  #                  labels=c(expression(atop(NA, atop(0%->%1,"Intercept"))),
-  #                           expression(atop(NA, atop(0%->%1,"Intervention"))),
-  #                           expression(atop(NA, atop(1%->%0,"Intercept"))),
-#                           expression(atop(NA, atop(1%->%1,"Intercept"))))) +
-scale_x_discrete(guide=guide_axis(angle = 90),
-                 labels=c(expression(atop(NA, atop(0%->%0%->%1,"Intercept"))),
-                          expression(atop(NA, atop(0%->%1%->%0,"Intercept"))),
-                          expression(atop(NA, atop(0%->%1%->%0,"Intervention"))),
-                          expression(atop(NA, atop(0%->%1%->%1,"Intercept"))),
-                          expression(atop(NA, atop(0%->%1%->%1,"Intervention"))),
-                          expression(atop(NA, atop(1%->%0%->%0,"Intercept"))),
-                          expression(atop(NA, atop(1%->%0%->%0,"Intervention"))),
-                          expression(atop(NA, atop(1%->%0%->%1,"Intercept"))),
-                          expression(atop(NA, atop(1%->%0%->%1,"Intervention"))),
-                          expression(atop(NA, atop(1%->%1%->%0,"Intercept"))),
-                          expression(atop(NA, atop(1%->%1%->%1,"Intercept"))))) +
+  scale_x_discrete(guide=guide_axis(angle = 90),
+                 labels=c(expression(atop(NA, atop(0%->%1,"Intercept"))),
+                          expression(atop(NA, atop(0%->%1,"Intervention"))),
+                          expression(atop(NA, atop(1%->%0,"Intercept"))),
+                          expression(atop(NA, atop(1%->%1,"Intercept"))))) +
   facet_grid(~skill) +
   theme(legend.position = c(0.77, 0.12),
         legend.background = element_rect(fill="linen",
                                          linewidth=0.5, linetype="solid", 
-                                         colour ="white"))+
+                                         colour ="white"),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17))+
   # ylim(c(-2,2.2)) +
   labs(color=NULL) +
   xlab("") +
@@ -327,10 +305,12 @@ data.frame(prob = round(apply(beta_credible_post,2,mean),3),
   ggplot(aes(y=prob, x=i, group = term, col=term))+
   geom_bar(stat="identity") +
   scale_color_manual(values = c("seagreen3", "#E69F00", "#56B4E9")) +
-  theme(legend.position = c(0.85, 0.2),
+  theme(legend.position = c(0.8, 0.2),
         legend.background = element_rect(fill="linen",
                                          linewidth=0.5, linetype="solid", 
-                                         colour ="white"))+
+                                         colour ="white"),
+        text = element_text(size = 17),
+        legend.text = element_text(size = 12))+
   xlab("") +
   ylab("Coverage Probability") +
   labs(color=expression(Beta ~"Coefficients")) 
@@ -354,10 +334,12 @@ data.frame(prob = round(apply(gamma_credible_post,2,mean),3),
   ggplot(aes(y=prob, x=i, group = term, col=term))+
   geom_bar(stat="identity") +
   scale_color_manual(values = c("seagreen3", "#E69F00", "#56B4E9")) +
-  theme(legend.position = c(0.85, 0.2),
+  theme(legend.position = c(0.8, 0.2),
         legend.background = element_rect(fill="linen",
                                          linewidth=0.5, linetype="solid", 
-                                         colour ="white"))+
+                                         colour ="white"),
+        text = element_text(size = 17),
+        legend.text = element_text(size = 12))+
   xlab("") +
   ylab("Coverage Probability") +
   labs(color=expression(Gamma ~"Coefficients"))

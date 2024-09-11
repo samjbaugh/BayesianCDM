@@ -7,6 +7,7 @@ devtools::load_all()
 require(mvtnorm)
 require(truncnorm)
 require(tidyverse)
+require(doParallel)
 
 
 M            = 3000
@@ -181,16 +182,91 @@ list(sim = sim, true_alpha = true_alpha, Ys = Ys,
 
 #################################################################################################################################################################
 
-true_alphas = lapply(1:Nsims, function(x) sim_results[[x]]$true_alpha)
-Ys = lapply(1:Nsims, function(x) sim_results[[x]]$Ys)
+{
+  beta_list = lapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
+                       dplyr::select(contains('beta')))
+  full_beta_mat = do.call(rbind, beta_list)
+  # boxplot(full_beta_mat[,60:78])
+  true_alphas = lapply(1:Nsims, function(x) sim_results[[x]]$true_alpha)
+  Ys = lapply(1:Nsims, function(x) sim_results[[x]]$Ys)
+  # Beta cleaning
+  beta_mat=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
+                      dplyr::select(contains('beta'))%>%
+                      apply(2,mean)))
+  beta_sd=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
+                     dplyr::select(contains('beta'))%>%
+                     apply(2,sd)))
+  # Gamma cleaning
+  gamma_post=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
+                        dplyr::select(contains('gamma'))%>%
+                        apply(2,mean)))
+  gamma_sd=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
+                      dplyr::select(contains('gamma'))%>%
+                      apply(2,sd)))
+  Nmain = sum(delta[,2:(Nskill+1)])
+  Nint = sum(delta[,(Nskill+2):ncol(delta)])
+}
 
-# Beta cleaning
-beta_mat=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
-                    dplyr::select(contains('beta'))%>%
-                    apply(2,mean)))
-beta_sd=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
-                   dplyr::select(contains('beta'))%>%
-                   apply(2,sd)))
+
+### Beta posteriors
+ggplot(data.frame(beta.post=c(beta_mat), q=rep(1:sum(delta), each = Nsims), 
+                  beta.true=rep(true_params$beta_mat[delta==1], each=Nsims),
+                  term=factor(c(rep("Intercepts", Nq*Nsims), rep("Main Effects", Nmain*Nsims), 
+                                rep("Interactions", Nint*Nsims)), 
+                              levels=c("Intercepts","Main Effects","Interactions")))) + 
+  scale_color_manual(values = c("#56B4E9", "#E69F00", "seagreen3")) +
+  geom_point(aes(x=q ,y=beta.true, col=term), size=.7)+  
+  geom_boxplot(aes(y=beta.post, x=q, group=q, col = term), outlier.size=0.05,
+               fill = "white", position="identity", alpha=.2, width=1, size=0.4)+
+  theme(legend.position = c(.85,.15),
+        legend.background = element_rect(fill="linen",
+                                         linewidth=0.5, linetype="solid", 
+                                         colour ="white"),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17))+
+  xlab("") +
+  ylab(expression(Beta ~"Value")) +
+  labs(color='Posterior Distributions \n+ True Values:') 
+
+
+
+### Gamma posteriors
+plotdf=data.frame(gamma_post=c(gamma_post),
+                  gamma_true=rep(unlist(true_params$gamma_list),each=Nsims),
+                  i=1:length(c(gamma_post)))%>%
+  mutate(skill=c(rep("Attribute 1",11*Nsims),rep("Attribute 2",11*Nsims),rep("Attribute 3",11*Nsims)),
+         i=factor(rep(c(1:11,1:11,1:11),each=Nsims)), q=rep(1:33,each=Nsims))
+# ggplot
+ggplot(plotdf)+
+  geom_boxplot(aes(y=gamma_post, x=i, group=q, col='Posterior'), outlier.size=0,
+               fill = "white", position="identity", alpha=.5)+  
+  geom_point(aes(x=i,y=gamma_true,col='True'))+
+  scale_x_discrete(guide=guide_axis(angle = 90),
+                   labels=c(expression(atop(NA, atop(0%->%0%->%1,"Intercept"))),
+                            expression(atop(NA, atop(0%->%1%->%0,"Intercept"))),
+                            expression(atop(NA, atop(0%->%1%->%0,"Intervention"))),
+                            expression(atop(NA, atop(0%->%1%->%1,"Intercept"))),
+                            expression(atop(NA, atop(0%->%1%->%1,"Intervention"))),
+                            expression(atop(NA, atop(1%->%0%->%0,"Intercept"))),
+                            expression(atop(NA, atop(1%->%0%->%0,"Intervention"))),
+                            expression(atop(NA, atop(1%->%0%->%1,"Intercept"))),
+                            expression(atop(NA, atop(1%->%0%->%1,"Intervention"))),
+                            expression(atop(NA, atop(1%->%1%->%0,"Intercept"))),
+                            expression(atop(NA, atop(1%->%1%->%1,"Intercept"))))) +
+  facet_grid(~skill) +
+  theme(legend.position = c(0.77, 0.12),
+        legend.background = element_rect(fill="linen",
+                                         linewidth=0.5, linetype="solid", 
+                                         colour ="white"),
+        axis.text.x = element_text(size = 7),
+        axis.text.y = element_text(size = 17),
+        axis.title = element_text(size = 17))+
+  # ylim(c(-2,2.2)) +
+  labs(color=NULL) +
+  xlab("") +
+  ylab(expression(Gamma ~ "Value")) 
+
+
 # Beta credible interval coverage
 beta_upper = beta_mat + 2*beta_sd
 beta_lower = beta_mat - 2*beta_sd
@@ -200,16 +276,25 @@ for(i in 1:length(true_beta))
 {
   beta_credible_post[,i] = (beta_lower[,i] < true_beta[i]) & (true_beta[i] < beta_upper[,i])
 }
-barplot(round(apply(beta_credible_post,2,mean),3), main = "Beta Coverage",
-        names = 1:length(true_beta), col = c(rep(7, 21), rep(2,36), rep(3,21)))
+data.frame(prob = round(apply(beta_credible_post,2,mean),3),
+           i = 1:length(true_beta),
+           term = factor(c(rep("Intercepts", Nq), rep("Main Effects", Nmain), 
+                           rep("Interactions", Nint)), 
+                         levels=c("Intercepts","Main Effects","Interactions"))) %>%
+  ggplot(aes(y=prob, x=i, group = term, col=term))+
+  geom_bar(stat="identity") +
+  scale_color_manual(values = c("seagreen3", "#E69F00", "#56B4E9")) +
+  theme(legend.position = c(0.8, 0.2),
+        legend.background = element_rect(fill="linen",
+                                         linewidth=0.5, linetype="solid", 
+                                         colour ="white"),
+        text = element_text(size = 17),
+        legend.text = element_text(size = 12))+
+  xlab("") +
+  ylab("Coverage Probability") +
+  labs(color=expression(Beta ~"Coefficients")) 
 
-# Gamma cleaning
-gamma_post=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
-                      dplyr::select(contains('gamma'))%>%
-                      apply(2,mean)))
-gamma_sd=t(sapply(1:Nsims, function(x) sim_results[[x]]$sampler_out$samples_burned_in%>%
-                    dplyr::select(contains('gamma'))%>%
-                    apply(2,sd)))
+
 # Gamma credible interval coverage
 gamma_upper = gamma_post + 2*gamma_sd
 gamma_lower = gamma_post - 2*gamma_sd
@@ -219,45 +304,29 @@ for(i in 1:length(true_gamma))
 {
   gamma_credible_post[,i] = (gamma_lower[,i] < true_gamma[i]) & (true_gamma[i] < gamma_upper[,i])
 }
-barplot(round(apply(gamma_credible_post,2,mean),3), ylim = c(0,1), main = "Gamma Coverage",
-        names = 1:length(true_gamma), col = c(rep(11, length(true_gamma)/3),
-                                              rep(12, length(true_gamma)/3),
-                                              rep(13, length(true_gamma)/3)))
-
-### Beta posteriors
-ggplot(data.frame(beta.post=c(beta_mat), q=rep(1:78, each = 300), 
-                  beta.true=rep(true_params$beta_mat[delta==1], each=300))) + 
-  geom_point(aes(x=q ,y=beta.true, col='betatrue'))+  
-  geom_boxplot(aes(y=beta.post, x=q, group = q, col='beta'), outlier.size=0,
-               fill = "white", position="identity", alpha=.1)+
-  theme(legend.position = c(.9, .15),
-        legend.background = element_rect(fill="white",
+data.frame(prob = round(apply(gamma_credible_post,2,mean),3),
+           i = 1:length(true_gamma),
+           term = factor(c(rep("Skill 1", length(true_gamma)/Nskill), 
+                           rep("Skill 2", length(true_gamma)/Nskill), 
+                           rep("Skill 3", length(true_gamma)/Nskill)), 
+                         levels=c("Skill 1","Skill 2","Skill 3"))) %>%
+  ggplot(aes(y=prob, x=i, group = term, col=term))+
+  geom_bar(stat="identity") +
+  scale_color_manual(values = c("seagreen3", "#E69F00", "#56B4E9")) +
+  theme(legend.position = c(0.8, 0.2),
+        legend.background = element_rect(fill="linen",
                                          linewidth=0.5, linetype="solid", 
-                                         colour ="black"))+
-  labs(color=NULL)
+                                         colour ="white"),
+        text = element_text(size = 17),
+        legend.text = element_text(size = 12))+
+  xlab("") +
+  ylab("Coverage Probability") +
+  labs(color=expression(Gamma ~"Coefficients"))
 
-### Gamma posteriors
-plotdf=data.frame(gamma_post=c(gamma_post),
-                  gamma_true=rep(unlist(true_params$gamma_list),each=300),
-                  i=1:length(c(gamma_post)))%>%
-  mutate(skill=c(rep(1,11*300),rep(2,11*300),rep(3,11*300)),i=rep(c(1:11,1:11,1:11),each=300),
-         q=rep(1:33,each=300))
-pgamma=ggplot(plotdf)+
-  # geom_errorbar(aes(x=i-.25,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='posterior mean'))+
-  geom_boxplot(aes(y=gamma_post, x=i, group=q, col='posterior mean'), outlier.size=0,
-               fill = "white", position="identity", alpha=.5)+  
-  geom_point(aes(x=i,y=gamma_true,col='true'))+
-  # geom_point(aes(x=i,y=gamma_true,col='true'))+
-  # geom_point(aes(x=i+.25,y=pmean,col='posterior mean'))+
-  # geom_errorbar(aes(x=i+.25,ymin=pmean-psd*2,ymax=pmean+psd*2,col='ss'))+
-  facet_grid(~skill) +
-  theme(legend.position = c(.9, .92),
-        legend.background = element_rect(fill="white",
-                                         linewidth=0.5, linetype="solid", 
-                                         colour ="black"))+
-  labs(color=NULL)
-pgamma
 
+########################## Single Simulation Results ##########################
+
+sampler_out = sim_results[[1]]$sampler_out
 {
   # delta=do.call(rbind,map(Qs,Q_to_delta))
   beta_mat=sampler_out$samples_burned_in%>%
@@ -266,16 +335,23 @@ pgamma
   beta_sd=sampler_out$samples_burned_in%>%
     dplyr::select(contains('beta'))%>%
     apply(2,sd)
-  pbeta=data.frame(postmean=beta_mat,
-                   betatrue=true_params$beta_mat[delta==1],
+  pbeta=data.frame(Posterior=beta_mat,
+                   True=true_params$beta_mat[delta==1],
                    betasd=beta_sd)%>%
-    # filter(postmean<8)%>%
+    # filter(Posterior<8)%>%
     mutate(i=1:n())%>%
     ggplot()+
-    geom_point(aes(x=i,y=postmean,col='postmean'))+
-    geom_errorbar(aes(x=i,ymin=postmean-2*betasd,
-                      ymax=postmean+2*betasd,col='postmean'))+
-    geom_point(aes(x=i,y=betatrue,col='betatrue'))  
+    geom_point(aes(x=i,y=Posterior,col='Posterior'))+
+    geom_errorbar(aes(x=i,ymin=Posterior-2*betasd,
+                      ymax=Posterior+2*betasd,col='Posterior'))+
+    geom_point(aes(x=i,y=True,col='True')) + 
+    theme(legend.position = c(0.85, 0.15),
+          legend.background = element_rect(fill="linen",
+                                           linewidth=0.5, linetype="solid", 
+                                           colour ="white")) +
+    xlab("") +
+    ylab(expression(Beta ~"Value")) +
+    labs(color=NULL) 
   # coord_cartesian(ylim = c(-5, 10))
   pbeta
 }
@@ -285,8 +361,6 @@ plot(sampler_out$samples_burned_in[,32], type = "l")
 
 
 {
-  sampler_out = sim_results[[1]]$sampler_out
-  true_alpha = true_alphas[[1]]
   alpha_post=sampler_out$samples_burned_in%>%
     dplyr::select(starts_with('alpha'))
   # M=20
@@ -328,7 +402,12 @@ plot(sampler_out$samples_burned_in[,32], type = "l")
 # scale_y_log10()
 
 
+asdf = sampler_out$samples_burned_in%>%dplyr::select(contains('gamma'))
+plot(asdf[,4], type="l")
+
+
 {
+  # true_alpha = sim_results[[1]]$true_alpha
   gamma_postmean=sampler_out$samples_burned_in%>%
     dplyr::select(contains('gamma'))%>%
     apply(2,mean)
@@ -336,23 +415,30 @@ plot(sampler_out$samples_burned_in[,32], type = "l")
     dplyr::select(contains('gamma'))%>%
     apply(2,sd)
   
-  trans_mat=alpha_to_transitions(true_alpha,profiles)
-  priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
-  tmp=sample_gamma(true_params$gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
+  # trans_mat=alpha_to_transitions(true_alpha,profiles)
+  # priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
+  # tmp=sample_gamma(true_params$gamma_list,trans_mat,Xs,priorsd_gamma,retmean=T)
   plotdf=data.frame(gamma_true=unlist(true_params$gamma_list),
                     postmean=gamma_postmean,
                     postsd=gamma_postsd,
-                    pmean=unlist(tmp$gamma_mean),
-                    psd=sqrt(unlist(map(tmp$gamma_var,~map(.,diag)))),
+                    # pmean=unlist(tmp$gamma_mean),
+                    # psd=sqrt(unlist(map(tmp$gamma_var,~map(.,diag)))),
                     i=1:length(gamma_postmean))%>%
     mutate(skill=c(rep(1,11),rep(2,11),rep(3,11)),i=c(1:11,1:11,1:11))
   pgamma=ggplot(plotdf)+
-    geom_point(aes(x=i-.25,y=postmean,col='posterior mean'))+
-    geom_errorbar(aes(x=i-.25,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='posterior mean'))+
-    geom_point(aes(x=i,y=gamma_true,col='true'))+
+    geom_point(aes(x=i-.25,y=postmean,col='Posterior'))+
+    geom_errorbar(aes(x=i-.25,ymin=postmean-postsd*2,ymax=postmean+postsd*2,col='Posterior'))+
+    geom_point(aes(x=i,y=gamma_true,col='True'))+
     # geom_point(aes(x=i+.25,y=pmean,col='posterior mean'))+
     # geom_errorbar(aes(x=i+.25,ymin=pmean-psd*2,ymax=pmean+psd*2,col='ss'))+
-    facet_grid(~skill)
+    facet_grid(~skill) +
+    theme(legend.position = c(0.78, 0.15),
+          legend.background = element_rect(fill="linen",
+                                           linewidth=0.5, linetype="solid", 
+                                           colour ="white")) +
+    xlab("") +
+    ylab(expression(Gamma ~"Value")) +
+    labs(color=NULL) 
   pgamma
 }
 

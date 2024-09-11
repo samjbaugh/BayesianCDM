@@ -22,7 +22,7 @@
   Nrespondents = nrow(complete.dat.mat)
   Nskill = k   = 4
   
-  Xbase=cbind(rep(1,Nrespondents),rep(1,Nrespondents))
+  Xbase=cbind(rep(1,Nrespondents))
   # Xs=build_Xlist_01(Xbase,Nskill,Ntime)
   Xs=build_Xlist(Xbase,Nskill,Ntime)
   
@@ -37,7 +37,7 @@
   Nprofile=2^Nskill
   
   runtime = system.time({
-  sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,3000,
+  sampler_out=fit_longitudinal_cdm_full(Ys,Xs,Qs,M=3000,
                                   initparams = NULL,
                                   priors=list(beta_prior=1,gamma_prior=0.5),
                                   fixed_beta = T)})
@@ -101,7 +101,8 @@ par(mfrow = c(1,1))
       geom_errorbar(aes(x=i,ymin=me-2*me_sd, ymax=me+2*me_sd,col='Main Effects')) +
       # geom_hline(yintercept=0, col = "dodgerblue", size = 1.5) +
       coord_cartesian(xlim = c(0,21), ylim = c(-6.5, 7)) +
-      theme(legend.position = "none") +
+      theme(legend.position = "none",
+            text = element_text(size = 17)) +
       xlab("Item Number") +
       ylab(expression(Beta ~ "Estimated Value"))
     # +geom_point(aes(x=i,y=betatrue,col='betatrue'))
@@ -122,6 +123,7 @@ ggplot(betaplotdf)+
   geom_point(aes(x=i,y=int,col='Intercepts'), shape = 1, size = 3)+
   geom_point(aes(x=i,y=me,col='Main Effects'), shape = 15, size = 3)+
   coord_cartesian(ylim = c(-5, 5.5))+
+  theme(text = element_text(size = 15))+
   labs(y = "Estimated Values", x = "Item Number", color = "")
 
 
@@ -227,7 +229,8 @@ colMeans(prob_samples)
                               expression(atop(NA, atop(1%->%0,"Intercept"))),
                               expression(atop(NA, atop(1%->%1,"Intercept")))))+
     facet_grid(~factor(skill, levels=c("RPR","MD","NF","GG"))) +
-    theme(legend.position = "none") +
+    theme(legend.position = "none",
+          text = element_text(size = 17)) +
     xlab("") +
     ylab(expression(Gamma ~ "Estimated Value"))
   pgamma
@@ -258,7 +261,7 @@ pred_correct =
     lapply(1:1000, function(iter) pred_data[[iter]][[time]] == Ys[[time]])
   })
 
-# By questions:
+# By time:
 pred_qprob = map(pred_correct, ~colMeans(t(simplify2array(lapply(1:1000, function(m) colMeans(.[[m]]))))))
 byq = map(pred_qprob, ~round(.,2))
 byq
@@ -274,6 +277,50 @@ ggplot(resp_correct, aes(Prop))+
   facet_grid(Time ~ .) +
   xlab("Proportion Matching") +
   ylab("Respondent Count")
+
+# By questions (prob correct instead of prob matching):
+true_byq = map(Ys, ~colMeans(.))
+pred_qprob = map(pred_data, ~map(.,~colMeans(.)))
+pred_byq = list(t(sapply(1:1000, function(x) pred_qprob[[x]][[1]])),
+                t(sapply(1:1000, function(x) pred_qprob[[x]][[2]])))
+#time1
+ggplot(data.frame(Question = rep(1:21,each=1000), Probability = c(pred_byq[[1]]), 
+                  True = rep(true_byq[[1]],each=1000)), 
+       aes(x=Question, y=Probability, group=Question)) +
+  geom_boxplot(outlier.size=.05) +
+  geom_point(aes(x=Question, y=True),col="red") +
+  ylim(0,0.8) +
+  ggtitle("Time 1") +
+  theme(plot.title = element_text(colour = "steelblue", face = "bold", family = "Helvetica"),
+        text = element_text(size = 17))
+#time2
+ggplot(data.frame(Question = rep(1:21,each=1000), Probability = c(pred_byq[[2]]), 
+                  True = rep(true_byq[[2]],each=1000)), 
+       aes(x=Question, y=Probability, group=Question)) +
+  geom_boxplot(outlier.size=.05) +
+  geom_point(aes(x=Question, y=True),col="red") +
+  ylim(0,0.8) +
+  ggtitle("Time 2") +
+  theme(plot.title = element_text(colour = "steelblue", face = "bold", family = "Helvetica"),
+        text = element_text(size = 17))
+
+# By respondents (prob correct instead of prob matching):
+# true_byr = map(Ys, ~rowMeans(.))
+# pred_rprob = map(pred_data, ~map(.,~rowMeans(.)))
+# pred_byr = list(t(sapply(1:1000, function(x) pred_rprob[[x]][[1]])),
+#                 t(sapply(1:1000, function(x) pred_rprob[[x]][[2]])))
+# #time1
+# ggplot(data.frame(Respondents = rep(1:Nrespondents,each=1000), Probability = c(pred_byr[[1]]), 
+#                   True = rep(true_byr[[1]],each=1000)), 
+#        aes(x=Respondents, y=Probability, group=Respondents)) +
+#   geom_boxplot(outlier.size=.05) +
+#   geom_point(aes(x=Respondents, y=True),col="red")
+# #time2
+# ggplot(data.frame(Respondents = rep(1:Nrespondents,each=1000), Probability = c(pred_byr[[2]]), 
+#                   True = rep(true_byr[[2]],each=1000)), 
+#        aes(x=Respondents, y=Probability, group=Respondents)) +
+#   geom_boxplot(outlier.size=.05) +
+#   geom_point(aes(x=Respondents, y=True),col="red")
 
 
 ### CURRENTLY IN PAPER
@@ -325,6 +372,7 @@ resp_correct = data.frame(Prop = c(rowMeans(pred_correct[[1]]), rowMeans(pred_co
 ggplot(resp_correct, aes(Prop))+
   geom_histogram(fill = "deepskyblue", col = "black",alpha=0.3,binwidth=.05,position="identity")+
   facet_grid(Time ~ .) +
+  theme(text = element_text(size = 17))+
   xlab("Proportion Matching") +
   ylab("Respondent Count")
 
