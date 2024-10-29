@@ -8,6 +8,8 @@ devtools::load_all()
 require(mvtnorm)
 require(truncnorm)
 require(tidyverse)
+require(torch)
+
 # library(doRNG)
 # library(doParallel)
 

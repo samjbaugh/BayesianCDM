@@ -9,6 +9,8 @@
   require(mvtnorm)
   require(truncnorm)
   require(tidyverse)
+  require(torch)
+  
   
   setwd("~/Desktop/CDM/")
   devtools::load_all()

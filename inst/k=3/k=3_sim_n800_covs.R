@@ -8,8 +8,8 @@
   require(mvtnorm)
   require(truncnorm)
   require(tidyverse)
-  # library(doRNG)
-  # library(doParallel)
+  require(torch)
+  
   
   
   

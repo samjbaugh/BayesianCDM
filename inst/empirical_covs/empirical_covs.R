@@ -11,6 +11,8 @@
   require(truncnorm)
   require(tidyverse)
   require(readxl)
+  require(torch)
+  
   
   setwd("~/Desktop/CDM/")
   devtools::load_all()

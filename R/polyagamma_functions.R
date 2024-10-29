@@ -180,38 +180,111 @@ apply_gamma_X=function(gamma_list,Xs,f){
 #' @param alpha_mat Alpha matrix
 #' @param theta Response probabilities
 #' @param trans_probs Transition probabilities
-#' @param qt_map Map between questions and time
 #' @param profiles List of profiles
 #' @param Ys Data
-sample_alpha_mat=function(alpha_mat,theta,trans_probs,qt_map,profiles,Ys){
-  Nskill=dim(profiles)[2]
-  Ntime=length(Ys)
-  nu=2^(Ntime:1-1)
-  Nprofile=dim(theta)[2]
-  for(i in 1:dim(alpha_mat)[1]){
-    for(t in 1:dim(alpha_mat)[2]){
-      # theta_time=theta[qt_map==t,]
-      theta_time = theta
-      joint_prob_alpha=rep(NA,Nprofile)
-      logcond_prob_Y=rep(NA,Nprofile)
-      for(c in 1:Nprofile){
-        profile_sequence=alpha_mat[i,]
-        profile_sequence[t]=c
-        prof_seq=profiles[profile_sequence,]
-        trans_ints=t(prof_seq)%*%nu+1
-        joint_prob_alpha[c]=
-          prod(map_dbl(1:Nskill,~trans_probs[[.]][i,trans_ints][.]))
-        logcond_prob_Y[c]=sum((1-Ys[[t]][i,])*log(1-theta_time[,c])+
-                                Ys[[t]][i,]*log(theta_time[,c]))
-      }
-      cond_prob_alpha=joint_prob_alpha/sum(joint_prob_alpha)
-      punorm=log(cond_prob_alpha)+logcond_prob_Y
-      samp_prob_alpha=exp(punorm-max(punorm))/sum(exp(punorm-max(punorm)))
-      alpha_mat[i,t]=sample(1:Nprofile,1,prob=samp_prob_alpha)
+sample_alpha_mat = function(alpha_mat, theta, trans_probs, profiles, Ys){
+  K = dim(profiles)[2]
+  indT = length(Ys)
+  Nprofile = dim(theta)[2]
+  N = dim(alpha_mat)[1]
+  nu = 2^(indT:1-1)
+  onehot_matrix = generate_onehot_matrix(K, indT)
+  
+  for (t in 1:indT){
+    theta_time = theta
+    joint_prob_alpha = matrix(NA, nrow = N, ncol = Nprofile)
+    logcond_prob_Y = matrix(NA, nrow = N, ncol = Nprofile)
+    
+    for (c in 1:Nprofile){
+      profile_sequence = alpha_mat
+      profile_sequence[, t] = c
+      profile_sequence_int = (profile_sequence-1) %*% as.matrix((2^K)^(0:(indT-1)))+1
+      
+      # convert the integer class to binary attribute profile
+      prof_array = batch_matmul_R(onehot_matrix[profile_sequence_int,,], as.matrix(profiles))
+      
+      # find out the transition type of each skill, here the nrow = K, the ith row indicates the type of transition of kth skill
+      trans_ints = batch_matmul_R(aperm(prof_array, c(1,3,2)), as.matrix(nu))[,,1]+1
+      joint_prob_alpha[,c] = apply(sapply(1:K, function(k){rowSums(one_hot_encoder(trans_ints[,k], indT)*trans_probs[[k]])}), 1, prod)
+      logcond_prob_Y[, c] = Ys[[t]] %*% as.matrix(log(theta_time[,c]))+(1- Ys[[t]]) %*% as.matrix(log(1-theta_time[,c]))
+      ## c is the type of profile, ranging from 1 to 2^K.
     }
+    cond_prob_alpha = joint_prob_alpha/rowSums(joint_prob_alpha)
+    punorm = log(cond_prob_alpha)+logcond_prob_Y
+    samp_prob_alpha = softmax_R(punorm)
+    alpha_mat[, t] = sample_multinomial_R(samp_prob_alpha)
   }
   alpha_mat
 }
+
+# "sample_alpha_mat" helpers (following 5 functions):
+generate_onehot_matrix <- function(K, indT) {
+  # Create a vector of numbers from 1 to 2^K
+  values <- 1:(2^K)
+  
+  # Generate all possible combinations of T positions with the given values
+  combinations <- expand.grid(rep(list(values), indT))
+  
+  # Convert the result into a matrix (optional)
+  permute_matrix <- as.matrix(combinations)
+  
+  onehot_matrix = array(0, dim = c(2^(K*indT), indT, 2^K))
+  for (i in 1:2^(K*indT)){
+    for (t in 1:indT){
+      onehot_matrix[i, t, permute_matrix[i,t]] = 1
+    }
+  }
+  return(onehot_matrix)
+}
+
+## --------------------------------------------- ##
+# A is a n*p*q and B is a q*m matrix, then the output is a n*p*m matrix
+batch_matmul_R = function(A, B){
+  A_torch = torch_tensor(A, dtype = torch_float())
+  B_torch = torch_tensor(B, dtype = torch_float())
+  res = torch_matmul(A_torch, B_torch)
+  return(as.array(res))
+}
+
+
+## --------------------------------------------- ##
+# One-hot encoder, the input is a vector of integer classes
+one_hot_encoder = function(vec, indT) {
+  N = length(vec)  # Length of the vector v
+  num_columns = 2^indT  # Number of columns in the matrix
+  
+  # Create a zero matrix of size N x 2^T
+  one_hot_matrix = matrix(0, nrow = N, ncol = num_columns)
+  
+  # Use matrix indexing to set the appropriate positions to 1
+  one_hot_matrix[cbind(1:N, vec)] = 1
+  
+  return(one_hot_matrix)
+}
+
+
+## --------------------------------------------- ##
+softmax_R = function(M){
+  M = torch_tensor(M, dtype = torch_float())
+  res =nnf_softmax(M, dim = 2)
+  return(as.array(res))
+}
+
+
+
+## --------------------------------------------- ##
+sample_multinomial_R = function(probs){
+  probs = torch_tensor(probs, dtype = torch_float())
+  res = torch_multinomial(probs, 1, replacement = TRUE)
+  return(as.array(res))
+}
+
+
+
+
+
+
+
 
 #'  Return mean and variance of beta's Gibbs distribution
 #'

@@ -8,6 +8,8 @@ require(mvtnorm)
 require(truncnorm)
 require(tidyverse)
 require(doParallel)
+require(torch)
+
 
 
 M            = 3000
