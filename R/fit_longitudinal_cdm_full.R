@@ -116,7 +116,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         #sample alpha
         trans_probs=gamma_to_transprobs(gamma_list,Xs)
         theta[theta==1]=.99                                  #do this to avoid NA's:
-        alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
+        alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,profiles,Ys)
         trans_mat=alpha_to_transitions(alpha_mat,profiles)   #calculate new transitions
         # print(table(alpha_mat))
         # prof_correct = mean(alpha_mat==true_alpha)
@@ -171,7 +171,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       trans_probs=gamma_to_transprobs(gamma_list,Xs)
       #Do this to avoid NA's:
       theta[theta==1]=.99
-      alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,qt_map,profiles,Ys)
+      alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,profiles,Ys)
       # print(table(alpha_mat))
       # print(mean(alpha_mat==true_alpha))
 
