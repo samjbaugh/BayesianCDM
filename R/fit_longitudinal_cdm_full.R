@@ -18,10 +18,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
                              initparams=NULL,
                              fixed_beta=F){
     gen_init=is.null(initparams)
-
-    # print(paste('gen_init',gen_init))
-    # print('asfdasdf')
-    # priors=list(beta_prior=500,gamma_prior=1)
+    
     priorsd_beta=matrix(priors$beta_prior,Nq_total,Nprofile)
     priorsd_gamma=map(Xs,~map(.,function(x) priors$gamma_prior*diag(dim(x)[2])))
 
@@ -35,7 +32,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       Ntime=length(Ys)
       Nprofile=2^Nskill
       Ntransition=2^Ntime
-      Nq=Nq_list[[1]]                    # new
+      Nq=Nq_list[[1]]                   
 
       profiles=map_dfr(1:Nprofile-1,
                        ~data.frame(t(rev(as.integer(intToBits(.))[1:Nskill]))))
@@ -43,11 +40,8 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
                      as.formula(paste0('~', paste0(names(profiles),collapse='*'))))
       transitions=map_dfr(1:(2^Ntime)-1,
                           ~data.frame(t(rev(as.integer(intToBits(.))[1:Ntime]))))
-
-      # delta_cat=do.call(rbind,map(Qs,Q_to_delta))
-      # single_delta=Q_to_delta(Qs[[1]])   
       
-      if (fixed_beta) {delta = Q_to_delta(Qs[[1]]) } else {         # new
+      if (fixed_beta) {delta = Q_to_delta(Qs[[1]]) } else {       
                        delta = do.call(rbind,map(Qs,Q_to_delta))}   
 
       qt_map=unlist(map(1:length(Nq_list),~rep(.,Nq_list[[.]])))
@@ -62,17 +56,11 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
       beta_mat[,3]=abs(beta_mat[,3])
       gamma_list=map(Xs,~map(.,function(x) rnorm(dim(x)[2])))
     }else{
-      # initparams=true_params
       beta_mat=initparams$beta_mat
       gamma_list=initparams$gamma_list
     }
-    # gamma_list=gamma_list_true
-    
+
     beta_vec = c(beta_mat[delta==1])
-    
-    # beta_mat=true_params$beta_mat
-    # gamma_list=gamma_list_true
-    # alpha_mat=true_alpha
     gamma_vec=unlist(gamma_list)
 
     trans_probs=gamma_to_transprobs(gamma_list,Xs)          # logistic(psi) 
@@ -97,7 +85,7 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         set_names(sampnames)
       samples[1,]=c(beta_vec,unlist(gamma_list),alpha_vec)
 
-      #Enforce positivity in all but intercept, as is done in the paper
+      #Enforce positivity in all but intercept
       Ljp=matrix(0,Nq,Nprofile)
       Ljp[,1]=-5
       Ninteractions= ncol(delta)-ncol(Q)-1
@@ -118,10 +106,6 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
         theta[theta==1]=.99                                  #do this to avoid NA's:
         alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,profiles,Ys)
         trans_mat=alpha_to_transitions(alpha_mat,profiles)   #calculate new transitions
-        # print(table(alpha_mat))
-        # prof_correct = mean(alpha_mat==true_alpha)
-        # prof_correct_vec = c(prof_correct_vec, prof_correct)
-        # print(prof_correct)
       
         #sample ystar
         nct = matrix(NA,Nprofile,Ntime)
@@ -169,11 +153,8 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
 
       #sample alpha
       trans_probs=gamma_to_transprobs(gamma_list,Xs)
-      #Do this to avoid NA's:
-      theta[theta==1]=.99
+      theta[theta==1]=.99 #do this to avoid NA's:
       alpha_mat=sample_alpha_mat(alpha_mat,theta,trans_probs,profiles,Ys)
-      # print(table(alpha_mat))
-      # print(mean(alpha_mat==true_alpha))
 
       #calculate new transitions
       trans_mat=alpha_to_transitions(alpha_mat,profiles)
@@ -195,7 +176,6 @@ fit_longitudinal_cdm_full=function(Ys,Xs,Qs,M,
           kappa[j,c]=sum(Yconcat[alpha_mat[,t]==c,j])-nct[c,t]/2
         }
       }
-      # kappa=sweep(njc,2,nc/2,'-') #t(apply(nmat,1,function(x) x-sum(x)/2))
       z=kappa/ystar
 
       # if(F){

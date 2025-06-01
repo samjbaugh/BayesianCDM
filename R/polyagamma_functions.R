@@ -370,29 +370,6 @@ sample_gamma=function(gamma_list,trans_mat,Xs,priorsd_gamma,retmean=F){
 }
 
 
-# tt=function(ystar,A,z,beta_mat,priorsd_beta){
-#   Nq_total=dim(ystar)[1]
-#   Nprofile=dim(ystar)[2]
-#   condsd=matrix(NA,Nq_total,Nprofile)
-#   for(j in 1:Nq_total){
-#     for(p in 1:Nprofile){
-#       omegaj=diag(ystar[j,])
-#       condsd[j,p]=sqrt(1/(t(A[,p])%*%(ystar[j,]*A[,p])+1/(priorsd_beta[j,p]^2)))
-#     }
-#   }
-# 
-#   condmean=matrix(NA,Nq_total,Nprofile)
-#   for(j in 1:Nq_total){
-#     for(p in 1:Nprofile){
-#       omegaj=diag(ystar[j,])
-#       ztildej=z[j,]-A[,-p]%*%beta_mat[j,-p]
-#       condmean[j,p]=condsd[j,p]^2*t(A[,p])%*%(ystar[j,]*ztildej)
-#     }
-#   }
-#   return(list(mean=condmean,sd=condsd))
-# }
-
-
 #'  Logistic function
 #'
 #' @description Add detail
