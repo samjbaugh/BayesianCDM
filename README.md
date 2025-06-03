@@ -1,4 +1,4 @@
-# P\`{o}lya-Gamma Extended Transition Diagnostic Classification Model
+# Pòlya-Gamma Extended Transition Diagnostic Classification Model
 
 This repository provides R code implementing an extension of the Transition Diagnostic Classification Model (TDCM) using Pòlya-Gamma data augmentation. The method enables flexible longitudinal modeling of student attribute mastery with covariate-dependent transitions, as described in:
 
